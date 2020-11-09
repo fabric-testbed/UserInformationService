@@ -1,0 +1,13 @@
+# swagger host FQDN or IP
+export SWAGGER_HOST=127.0.0.1:5000
+
+# postgres configuration
+export POSTGRES_HOST=api-db
+export POSTGRES_PORT=5432
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=uiservice
+export PGDATA=/var/lib/postgresql/data/pgdata
+export POSTGRES_DB=postgres
+
+# force to load mock people data
+export UISERVICE_MOCK=true

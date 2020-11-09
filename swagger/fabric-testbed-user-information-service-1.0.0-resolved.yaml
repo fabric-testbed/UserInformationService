@@ -1,0 +1,481 @@
+---
+openapi: 3.0.3
+info:
+  title: User Information Service
+  description: FABRIC User Information Service
+  termsOfService: None
+  contact:
+    name: Ilya Baldin
+    url: https://www.fabric-testbed.net
+    email: ibaldin@renci.org
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  version: 1.0.0
+servers:
+- url: http://127.0.0.1:5000/
+  description: local development
+- url: https://virtserver.swaggerhub.com/fabric-testbed/user-information-service/1.0.0
+  description: SwaggerHub API Auto Mocking
+tags:
+- name: people
+  description: People known to FABRIC UIS
+  externalDocs:
+    description: Private design docs
+    url: https://docs.google.com/document/d/1rqM4TNarqyO8JRg6nycX1Tyu7ctYzjzcTkjDKLs6G64/edit#
+- name: preferences
+  description: Portal preference information
+  externalDocs:
+    description: Private design docs
+    url: https://docs.google.com/document/d/1rqM4TNarqyO8JRg6nycX1Tyu7ctYzjzcTkjDKLs6G64/edit#
+- name: keys
+  description: SSH key information
+  externalDocs:
+    description: Private design docs
+    url: https://docs.google.com/document/d/1rqM4TNarqyO8JRg6nycX1Tyu7ctYzjzcTkjDKLs6G64/edit#
+- name: publications
+  description: Publication information
+  externalDocs:
+    description: Private design docs
+    url: https://docs.google.com/document/d/1rqM4TNarqyO8JRg6nycX1Tyu7ctYzjzcTkjDKLs6G64/edit#
+paths:
+  /version:
+    get:
+      tags:
+      - default
+      summary: version
+      description: Version
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+  /people:
+    get:
+      tags:
+      - people
+      summary: list of people
+      description: List of people
+      parameters:
+      - name: person_name
+        in: query
+        description: Search People by Name (ILIKE)
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+      - name: X-PageNo
+        in: header
+        description: Page number of results (25 per page)
+        required: false
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/People_short'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
+  /people/oidc_claim_sub:
+    get:
+      tags:
+      - people
+      summary: person details by OIDC Claim sub
+      description: Person details by OIDC Claim sub
+      parameters:
+      - name: oidc_claim_sub
+        in: query
+        description: Search People by OIDC Claim sub (exact match only)
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/People_long'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
+  /people/{uuid}:
+    get:
+      tags:
+      - people
+      summary: person details by UUID
+      description: Person details by UUID
+      parameters:
+      - name: uuid
+        in: path
+        description: People identifier as UUID
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/People_long'
+        "400":
+          description: Bad request. People ID must be in uuid-4 format
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: A Person with the specified ID was not found
+        "5XX":
+          description: Unexpected error
+  /preferences/{preftype}/{uuid}:
+    get:
+      tags:
+      - preferences
+      summary: get user preferences of specific type (settings, permissions or interests)
+      description: User preferences (returns sane defaults if user valid, but preferences not available)
+      parameters:
+      - name: preftype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/PreferenceType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        "204":
+          description: Preference not found
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Person/UUID not found
+        "5XX":
+          description: Unexpected error
+    put:
+      tags:
+      - preferences
+      summary: update user preferences by type
+      description: Update specific type of user preferences
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: preftype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/PreferenceType'
+      - name: preferences
+        in: query
+        required: true
+        style: deepObject
+        explode: false
+        schema:
+          type: object
+          additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: A User with the specified ID was not found
+        "5XX":
+          description: Unexpected error
+  /preferences/{uuid}:
+    get:
+      tags:
+      - preferences
+      summary: get all user preferences as an object
+      description: Get all preferences for a user
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preferences'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Person/UUID not found
+        "5XX":
+          description: Unexpected error
+  /authorids/{uuid}:
+    get:
+      tags:
+      - publications
+      summary: get user's author IDs (Scopus, Orcid etc.)
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuthorId'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Person matching UUID not found
+        "5XX":
+          description: Unexpected error
+  /authorids/{idtype}/{uuid}:
+    get:
+      tags:
+      - publications
+      summary: get users specific author ID
+      parameters:
+      - name: idtype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/AuthorIdType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "204":
+          description: This type author ID not found
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Person with UUID not found
+        "5XX":
+          description: Unexpected error
+    put:
+      tags:
+      - publications
+      summary: update user's specific author ID
+      parameters:
+      - name: idtype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/AuthorIdType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idval
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
+components:
+  schemas:
+    Version:
+      properties:
+        version:
+          type: string
+        gitsha1:
+          type: string
+    People_short:
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        eppn:
+          type: string
+    People_long:
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        eppn:
+          type: string
+        prefs:
+          $ref: '#/components/schemas/Preferences'
+    Publication_short:
+      properties:
+        title:
+          type: string
+        authors:
+          type: string
+        year:
+          type: integer
+        doi:
+          type: string
+    Publication_full:
+      properties:
+        title:
+          type: string
+        authors:
+          type: string
+        year:
+          type: integer
+        month:
+          type: integer
+        day:
+          type: integer
+        venue:
+          type: string
+        publisher:
+          type: string
+        doi:
+          type: string
+    Preferences:
+      properties:
+        settings:
+          type: object
+        permissions:
+          type: object
+        interests:
+          type: object
+    PortalKey:
+      properties:
+        pubkey:
+          type: string
+        privkey:
+          type: string
+        createdOn:
+          type: string
+        expiresOn:
+          type: string
+        project:
+          type: string
+    UserKey:
+      properties:
+        pubkey:
+          type: string
+        createdOn:
+          type: string
+        keytag:
+          type: string
+    AuthorIdType:
+      type: string
+      description: Different possible types of author IDs
+      enum:
+      - orcid
+      - publons
+      - scopus
+    AuthorId:
+      properties:
+        idtype:
+          $ref: '#/components/schemas/AuthorIdType'
+        idvalue:
+          type: string
+      description: Tuple describing an author ID (type and value)
+    PreferenceType:
+      type: string
+      description: Portal preferences come in a small number of flavors
+      enum:
+      - settings
+      - permissions
+      - interests
