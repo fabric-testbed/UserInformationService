@@ -101,6 +101,8 @@ Uses postgres.
 
 Setup your env_template, source it. Then run `docker-compose --env-file env-template up`. 
 
+Once the containers are up connect to `http://localhost:5000/ui` to interact with the service. 
+
 # Deployment
 
 The application is intended to be Dockerized (see [Dockerfile](Dockerfile)) and deployed together with Nginx and VouchProxy
