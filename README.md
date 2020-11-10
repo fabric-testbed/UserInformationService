@@ -85,7 +85,7 @@ The `/preferences/{uuid}` call returns a PermissionType structure:
 ```
 PermissionType:
   description: Portal permissions come in a small number of flavors
-  type: string
+  type: JSON object
   enum:
     - settings
     - permissions
