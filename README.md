@@ -81,11 +81,16 @@ by the portal logic. Preferences come in three separate flavors: `settings` for 
 | /preferences/{preftype}/{uuid} | PUT: update specific type of preference | preference type and uuid of the user| Updated value of the preference |
 | /preferences/{uuid} | GET: get all preferences as an object | uuid of the user | JSON structure containing all preferences |
 
-The `/preferences/{uuid}` call returns a PermissionType structure:
+The `/preferences/{uuid}` call returns a Permission structure:
 ```
-- settings
-- permissions
-- interests
+Preferences:
+   properties:
+     settings:
+       type: object
+     permissions:
+       type: object
+     interests:
+       type: object
 ```
 
 # Database
