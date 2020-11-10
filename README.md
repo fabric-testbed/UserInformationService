@@ -83,13 +83,9 @@ by the portal logic. Preferences come in three separate flavors: `settings` for 
 
 The `/preferences/{uuid}` call returns a PermissionType structure:
 ```
-PermissionType:
-  description: Portal permissions come in a small number of flavors
-  type: JSON object
-  enum:
-    - settings
-    - permissions
-    - interests
+- settings
+- permissions
+- interests
 ```
 
 # Database
