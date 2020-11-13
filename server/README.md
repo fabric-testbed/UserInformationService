@@ -12,24 +12,19 @@ Python 3.5.2+
 
 ## Usage
 To run the server, please execute the following from the root directory:
-
 ```
 pip3 install -r requirements.txt
 python3 -m swagger_server
 ```
-
 and open your browser to here:
-
 ```
-http://localhost:8080//ui/
+http://localhost:8080/ui/
 ```
-
 Your Swagger definition lives here:
 
 ```
 http://localhost:8080//swagger.json
 ```
-
 To launch the integration tests, use tox:
 ```
 sudo pip install tox
@@ -46,4 +41,39 @@ docker build -t swagger_server .
 
 # starting up a container
 docker run -p 8080:8080 swagger_server
+```
+
+## Testing components 
+
+If you don't want to use docker compose, you can start individual Dockers (for postgres and api server) as follows to help test:
+```
+$ docker run -d --name pgsql -e POSTGRES_PASSWORD=uiservice -e PGDATA=/var/lib/postgresql/data/pgdata -v /some/path/to/persistent/pgsqldata/:/var/lib/postgresql/data -p 5432:5432 postgres
+$ docker run -d --name uis -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=uiservice -e SWAGGER_HOST=127.0.0.1 -p 5000:5000 uis
+```
+
+Note that API server looks for environment variable `UISERVICE_MOCK` to be set to true to load tables with mock data automatically.
+
+### Testing the database
+
+Start the database docker as shown above. You can then get to `bash` inside of it and run the Posgres client tool 
+(you can also do it from outside the container if you have the client installed). Note that since Postgres is started
+as listening on a port, the client tool won't connect over a socket even from inside the container.
+
+```
+$ psql -h localhost -p 5432 -U postgres
+```
+Some helpful Postgres commamds: 
+
+- listing schema:
+```
+select table_name, column_name, data_type from information_schema.columns where table_name = 'fabric_papers';
+```
+- listing and changing databases
+```
+\l list databases
+\c <db name>
+```
+- describing tables in a database
+```
+\dt describe tables
 ```

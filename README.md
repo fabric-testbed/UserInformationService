@@ -99,14 +99,32 @@ Uses postgres.
 
 # Testing
 
-Setup your env_template, source it. Then run `docker-compose --env-file env-template up`. 
+Setup your env_template. Then run `docker-compose -f <compose file> --env-file <env file> up`.
+
+Copy and edit [env_template](env_template) to customize env file for specific type of test.  
+
+There are multiple ways to test with different arrangements of containers:
+- [Simple 'no-Nginx' setup](docker-compose-nonginx.yml), in which just two dockers are stood up. Typically used for 
+basic testing without any authentication.
+    - API server (under uWSGI)
+    - Postgres
+- ['Nginx'](docker-compose-nginx.yml), in which an additional Nginx container is stood up. Can be used to test Nginx
+URL routing:
+    - Nginx
+    - API Server
+    - Postgres
+- ['Vouch Proxy' local](docker-compose-vouch-proxy-local.yml), configured to run on localhost, adds containers for. Used for
+testing proper authentication with CILogon, albeit from localhost only and using provided [self-signed SSL certs](ssl/): 
+    - Nginx
+    - API Server
+    - Vouch Proxy
+    - Postgres 
 
 Once the containers are up connect to `http://localhost:5000/ui` to interact with the service. 
 
 # Deployment
 
-The application is intended to be Dockerized (see [Dockerfile](Dockerfile)) and deployed together with Nginx and VouchProxy
-(see [docker-compose.yml](docker-compose-nginx.yml) and [Nginx configuration](nginx/)). 
+...
 
 # References
 

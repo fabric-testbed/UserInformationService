@@ -1,13 +1,21 @@
 # swagger host FQDN or IP
-export SWAGGER_HOST=127.0.0.1:5000
+SWAGGER_HOST=127.0.0.1:5000
 
 # postgres configuration
-export POSTGRES_HOST=api-db
-export POSTGRES_PORT=5432
-export POSTGRES_USER=postgres
-export POSTGRES_PASSWORD=uiservice
-export PGDATA=/var/lib/postgresql/data/pgdata
-export POSTGRES_DB=postgres
+POSTGRES_HOST=api-db
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=uiservice
+PGDATA=/var/lib/postgresql/data/pgdata
+POSTGRES_DB=postgres
 
-# force to load mock people data
-export UISERVICE_MOCK=true
+# COmanage LDAP configuration
+LDAP_HOST=localhost
+LDAP_USER=user
+LDAP_PASSWORD=password
+LDAP_SEARCH_BASE=searchbase
+
+# turn off CILogon validation?
+SKIP_CILOGON_VALIDATION=true
+# load mock data, LDAP or none
+USER_DATA=mock

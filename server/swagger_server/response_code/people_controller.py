@@ -24,37 +24,12 @@
 #
 # Author: Ilya Baldin (ibaldin@renci.org) Michael Stealey (stealey@renci.org)
 
-import json
+from flask import request
 
-from swagger_server import MOCK_SERVICE, log
 from swagger_server.database import Session
 from swagger_server.database.models import FabricPerson
 from swagger_server.models.people_long import PeopleLong  # noqa: E501
-from swagger_server.models.people_short import PeopleShort  # noqa: E501
-from swagger_server.models.preferences import Preferences
-
-from .utils import validate_uuid_by_oidc_claim, validate_oidc_claim, create_new_person, dict_from_json_handle_none
-
-
-def _fill_people_long_from_person(person):
-    """
-    Return a PeopleLong based on FabricPerson
-    :return pl: a PeopleLong
-    """
-    response = PeopleLong()
-
-    # construct response object
-    response.uuid = person.uuid
-    response.name = person.name
-    response.email = person.email
-    if person.eppn != 'None':
-        response.eppn = person.eppn
-    else:
-        response.eppn = ''
-    response.prefs = Preferences(settings=dict_from_json_handle_none(person.settings),
-                                 permissions=dict_from_json_handle_none(person.permissions),
-                                 interests=dict_from_json_handle_none(person.interests))
-    return response
+import swagger_server.response_code.utils as utils
 
 
 def people_get(person_name=None, x_page_no=None):  # noqa: E501
@@ -64,11 +39,14 @@ def people_get(person_name=None, x_page_no=None):  # noqa: E501
     :type person_name: str
     :rtype: List[PeopleShort]
     """
-    if MOCK_SERVICE:
-        log.info("Mock service enabled, skipping validation")
-    else:
-        log.info("Validating user for name search")
-        # TODO: need to check they are a valid user, but nothing more
+    if not utils.validate_person(request.headers):
+        return "Not a valid FABRIC person", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
+
+    # can't let them query by fewer than 5 characters
+    if len(person_name) < 5:
+        return "Must provide more information", 400, \
+               {'X-Error': 'Bad request'}
 
     session = Session()
     try:
@@ -83,14 +61,7 @@ def people_get(person_name=None, x_page_no=None):  # noqa: E501
         response = []
         # TODO: fix pagination
         for person in query_result:
-            ps = PeopleShort()
-            ps.email = person.email
-            ps.name = person.name
-            ps.uuid = person.uuid
-            if person.eppn != 'None':
-                ps.eppn = person.eppn
-            else:
-                ps.eppn = ''
+            ps = utils.fill_people_short_from_person(person)
             response.append(ps)
 
         return response
@@ -105,12 +76,9 @@ def people_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501
     :type oidc_claim_sub: str
     :rtype: PeopleLong
     """
-    if MOCK_SERVICE:
-        log.info("Mock service enabled, skipping validation")
-    else:
-        if not validate_oidc_claim(oidc_claim_sub):
-            return "OIDC Claim Sub doesnt match", 401, \
-                   {'X-Error': 'Authorization information is missing or invalid'}
+    if not utils.validate_oidc_claim(request.headers, oidc_claim_sub):
+        return "OIDC Claim Sub doesnt match", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
 
     session = Session()
     try:
@@ -119,17 +87,17 @@ def people_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501
         query_result = query.all()
 
         if len(query_result) == 0:
-            # No entry means create a new one
-            pl = create_new_person()
+            # create a new FabricPerson in db, fill in information from the claim sub
+            # and returns a PeopleLong
+            pl = utils.create_new_fabric_person(request.headers)
             return pl
-
         else:
             if len(query_result) > 1:
                 return 'Duplicate OIDC Claim Found: {0}'.format(str(oidc_claim_sub)), 500, \
                        {'X-Error': 'Duplicate person found'}
 
-            person = query_result[0]
-            return _fill_people_long_from_person(person)
+        person = query_result[0]
+        return utils.fill_people_long_from_person(person)
     finally:
         session.close()
 
@@ -141,14 +109,9 @@ def people_uuid_get(uuid):  # noqa: E501
     :type uuid: str
     :rtype: PeopleLong
     """
-    if MOCK_SERVICE:
-        log.info("Mock service enabled, skipping validation")
-    else:
-        log.info("Validating OIDC claim UUID match")
-        if not validate_uuid_by_oidc_claim(uuid):
-            log.info("OIDC Claim did not pass validation")
-            return "OIDC Claim Sub doesnt match UUID", 401, \
-                   {'X-Error': 'Authorization information is missing or invalid'}
+    if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
+        return "OIDC Claim Sub doesnt match UUID", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
 
     session = Session()
     query = session.query(FabricPerson).filter(FabricPerson.uuid == uuid)
@@ -165,4 +128,4 @@ def people_uuid_get(uuid):  # noqa: E501
 
     person = query_result[0]
 
-    return _fill_people_long_from_person(person)
+    return utils.fill_people_long_from_person(person)

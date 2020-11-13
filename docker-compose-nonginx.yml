@@ -1,0 +1,47 @@
+version: '3.8'
+services:
+  server:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: api-server
+    depends_on:
+      - database
+    environment:
+      - POSTGRES_HOST=${POSTGRES_HOST:-api-db}
+      - POSTGRES_PORT=5432
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uiservice}
+      - SWAGGER_HOST=${SWAGGER_HOST:-127.0.0.1:5000}
+      - SKIP_CILOGON_VALIDATION=${SKIP_CILOGON_VALIDATION:-false}
+      - LDAP_HOST=${LDAP_HOST:-localhost}
+      - LDAP_USER=${LDAP_USER:-ldapuser}
+      - LDAP_PASSWORD=${LDAP_PASSWORD:-ldappass}
+      - LDAP_SEARCH_BASE=${LDAP_SEARCH_BASE:-ldapbase}
+      - USER_DATA=${USER_DATA:-none}
+    ports:
+      - 5000:5000
+    networks:
+      - frontend
+      - backend
+    restart: on-failure
+
+  database:
+    image: library/postgres:12
+    container_name: api-db
+    ports:
+      - 5432:5432
+    networks:
+      - backend
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uiservice}
+      - PGDATA=${PGDATA:-/var/lib/postgresql/data/pgdata}
+      - POSTGRES_DB=${POSTGRES_DB:-postgres}
+    restart: on-failure
+
+networks:
+  frontend:
+  backend:
+    internal: true

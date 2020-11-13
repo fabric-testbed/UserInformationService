@@ -6,13 +6,16 @@ from sqlalchemy.orm import sessionmaker
 from ..config import config_from_file, config_from_env
 
 # Setup database engine
-PREFIX = "POSTGRES"
+DB_PARAM_PREFIX = "POSTGRES"
+LDAP_PARAM_PREFIX = "LDAP"
 
-params = config_from_env(PREFIX)
+db_params = config_from_env(DB_PARAM_PREFIX)
+ldap_params = config_from_env(LDAP_PARAM_PREFIX)
 
-POSTGRES_ENGINE = 'postgres://' + params['user'] + ':' + params['password'] \
-                  + '@' + params['host'] + ':' + params['port'] \
-                  + '/' + params['db']
+print(f"Creating POSTGRES ENGINE with parameters {db_params}")
+POSTGRES_ENGINE = 'postgres://' + db_params['user'] + ':' + db_params['password'] \
+                  + '@' + db_params['host'] + ':' + db_params['port'] \
+                  + '/' + db_params['db']
 
 engine = create_engine(POSTGRES_ENGINE)
 Session = sessionmaker(bind=engine)

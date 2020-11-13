@@ -25,12 +25,13 @@
 # Author: Ilya Baldin (ibaldin@renci.org) Michael Stealey (stealey@renci.org)
 
 import json
+from flask import request
 
-from swagger_server import MOCK_SERVICE, log
+from swagger_server import log
 from swagger_server.database import Session
 from swagger_server.models.preferences import Preferences
 from swagger_server.database.models import FabricPerson, PreferenceType
-from .utils import validate_uuid_by_oidc_claim, dict_from_json_handle_none
+import swagger_server.response_code.utils as utils
 
 
 OKRETURN = "OK"
@@ -40,14 +41,9 @@ def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
     """
     Get user preferences as a string from the database
     """
-    if MOCK_SERVICE:
-        log.info("Mock service enabled, skipping validation")
-    else:
-        log.info("Validating OIDC claim UUID match")
-        if not validate_uuid_by_oidc_claim(uuid):
-            log.info("OIDC Claim did not pass validation")
-            return "OIDC Claim Sub doesnt match UUID", 401, \
-                   {'X-Error': 'Authorization information is missing or invalid'}
+    if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
+        return "OIDC Claim Sub doesnt match UUID", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
 
     # get preference by type
     if preftype not in PreferenceType.__members__.keys():
@@ -85,14 +81,9 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E5
     """
     Set user preferences as a string in the database
     """
-    if MOCK_SERVICE:
-        log.info("Mock service enabled, skipping validation")
-    else:
-        log.info("Validating OIDC claim UUID match")
-        if not validate_uuid_by_oidc_claim(uuid):
-            log.info("OIDC Claim did not pass validation")
-            return "OIDC Claim Sub doesnt match UUID", 401, \
-                   {'X-Error': 'Authorization information is missing or invalid'}
+    if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
+        return "OIDC Claim Sub doesnt match UUID", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
 
     # put preference by type
     if preftype not in PreferenceType.__members__.keys():
@@ -126,14 +117,9 @@ def preferences_uuid_get(uuid):  # noqa: E501
     """
     Get all user preferences as a single object
     """
-    if MOCK_SERVICE:
-        log.info("Mock service enabled, skipping validation")
-    else:
-        log.info("Validating OIDC claim UUID match")
-        if not validate_uuid_by_oidc_claim(uuid):
-            log.info("OIDC Claim did not pass validation")
-            return "OIDC Claim Sub doesnt match UUID", 401, \
-                   {'X-Error': 'Authorization information is missing or invalid'}
+    if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
+        return "OIDC Claim Sub doesnt match UUID", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
 
     session = Session()
     try:
@@ -149,9 +135,9 @@ def preferences_uuid_get(uuid):  # noqa: E501
 
         person = query_result[0]
 
-        response = Preferences(settings=dict_from_json_handle_none(person.settings),
-                               permissions=dict_from_json_handle_none(person.permissions),
-                               interests=dict_from_json_handle_none(person.interests))
+        response = Preferences(settings=utils.dict_from_json_handle_none(person.settings),
+                               permissions=utils.dict_from_json_handle_none(person.permissions),
+                               interests=utils.dict_from_json_handle_none(person.interests))
         return response
     finally:
         session.close()

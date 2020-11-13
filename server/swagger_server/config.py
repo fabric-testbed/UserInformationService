@@ -33,7 +33,7 @@ def config_from_env(prefix):
     Configure from the environment based on expected prefix of environment
     variables. Returned dictionary has the prefix + '_' stripped off and the
     second part of variable name turned to lower case (for consistency with INI
-    parsing).
+    parsing). E.g. LDAP_SEARCH_BASE is returned as 'search_base'.
     :param prefix: prefix for env variable (expected to have PREFIX_ form)
     """
     params = dict()

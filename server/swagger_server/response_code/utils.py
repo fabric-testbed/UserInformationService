@@ -1,11 +1,46 @@
 #!/usr/bin/env python3
-from swagger_server.database import Session
+# MIT License
+#
+# Copyright (c) 2020 FABRIC Testbed
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+#
+# Author: Ilya Baldin (ibaldin@renci.org) Michael Stealey (stealey@renci.org)
+
 import psycopg2
 import uuid
 import json
+import jwt
+import datetime
 
+from swagger_server.models import Preferences, PeopleShort
 from swagger_server.models.people_long import PeopleLong
-from swagger_server import log
+from swagger_server.database import Session
+from swagger_server.database.models import FabricPerson
+from swagger_server import SKIP_CILOGON_VALIDATION, log
+
+
+"""
+Module implementing a variety of utility functions for mapping
+database entries onto API returns and assisting in authorization.
+"""
 
 
 def dict_from_query(query=None):
@@ -45,35 +80,125 @@ def run_sql_commands(commands):
             session.close()
 
 
-def validate_uuid_by_oidc_claim(uuid):
+ID_TOKEN_NAME = 'X-Vouch-Idp-Idtoken'
+SUB_CLAIM = 'sub'
+NAME_CLAIM = 'name'
+EMAIL_CLAIM = 'email'
+
+
+def validate_uuid_by_oidc_claim(headers, puuid):
     """
     Extract OIDC claim sub from header identity token and match against UUID. Return True
-    if match, False othewise.
-    If no entry exists, create one and return True.
-    :param uuid: uuid to match against
+    if match, False otherwise.
+    :param headers: request headers
+    :param puuid: uuid to match against
+    :return bool:
     """
-    return True
+    if SKIP_CILOGON_VALIDATION:
+        log.info(f"Skipping uuid {puuid} validation")
+        return True
+    else:
+        log.info(f"Validating OIDC claim UUID {puuid} match")
+
+    id_token = headers.get(ID_TOKEN_NAME)
+    if id_token is None:
+        log.info("ID token absent")
+        return False
+
+    # FIXME: should we turn verify on?
+    decoded = jwt.decode(id_token, verify=False)
+    oidc_claim_sub = decoded.get(SUB_CLAIM)
+
+    session = Session()
+    try:
+        query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
+        query_result = query.all()
+
+        if len(query_result) == 0:
+            log.error(f"Unable to find user matching claim sub {oidc_claim_sub}")
+            return False
+
+        if len(query_result) > 1:
+            log.error(f"Found multiple users matching claim sub {oidc_claim_sub}")
+            return False
+
+        person = query_result[0]
+
+        log.info(f"Entry for claim sub vs uuid {puuid} match: {person.uuid == puuid}")
+        return person.uuid == puuid
+    finally:
+        session.close()
 
 
-def validate_oidc_claim(oidc_claim_sub):
+def validate_oidc_claim(headers, oidc_claim_sub):
     """
     Extract OIDC claim sub from header identity token and compare against parameter. Return
-    True if match, False otherwise.
+    True if match, False otherwise. Does not touch database.
+    :param headers:
     :param oidc_claim_sub: oidc claim sub
+    :return bool:
     """
+    if SKIP_CILOGON_VALIDATION:
+        log.info(f"Skipping OIDC claim sub {oidc_claim_sub} validation")
+        return True
+    else:
+        log.info(f"Validating OIDC claim sub {oidc_claim_sub} match")
+
+    id_token = headers.get(ID_TOKEN_NAME)
+    if id_token is None:
+        log.info("ID token absent")
+        return False
+
+    # FIXME: should we turn verify on?
+    decoded = jwt.decode(id_token, verify=False)
+    header_sub = decoded.get(SUB_CLAIM)
+
+    log.info(f"Parameter sub vs claim sub match: {header_sub == oidc_claim_sub}")
+    return header_sub == oidc_claim_sub
+
+
+def validate_person(headers):
+    """
+    Validate that this represents a valid FABRIC person based on header information.
+    Cookie or identity token can be used.
+    :param headers: request headers
+    """
+    if SKIP_CILOGON_VALIDATION:
+        log.info("Skipping person validation")
+        return True
+    else:
+        log.info("Validating FABRIC person")
+        # TODO: need to check they are a valid user, but nothing more
+        # TODO: get stuff out of id token and or cookie
     return True
 
 
-def create_new_person():
+def create_new_fabric_person(headers):
     """
-    Extract info from identity token and create (enter in db) an entry for this person,
-    including a new UUID.
+    Extract info from identity token and create a FabricPerson entry for this person,
+    including a new UUID. Return a PeopleLong based on that info.
+    :param headers: request headers with cookie, ID token etc
     :return ps: a PeopleLong entry for the new user
     """
-    pl = PeopleLong()
-    pl.uuid = uuid.uuid4()
-    log.info(f"Creating a new person with UUID {uuid}")
-    return pl
+    id_token = headers.get(ID_TOKEN_NAME)
+    # FIXME: should we turn verify on?
+    decoded = jwt.decode(id_token, verify=False)
+
+    session = Session()
+    try:
+        dbperson = FabricPerson()
+        dbperson.uuid = uuid.uuid4()
+        log.info(f"Generating new entry for user {decoded.get(SUB_CLAIM)} with UUID {dbperson.uuid}")
+        dbperson.registered_on = datetime.datetime.utcnow()
+        dbperson.oidc_claim_sub = decoded.get(SUB_CLAIM)
+        dbperson.name = decoded.get(NAME_CLAIM)
+        dbperson.email = decoded.get(EMAIL_CLAIM)
+        session.add(dbperson)
+        session.commit()
+        pl = fill_people_long_from_person(dbperson)
+        return pl
+    finally:
+        session.close()
 
 
 def dict_from_json_handle_none(j):
@@ -83,3 +208,42 @@ def dict_from_json_handle_none(j):
     if j is None:
         return dict()
     return json.loads(j)
+
+
+def fill_people_long_from_person(person):
+    """
+    Return a PeopleLong based on FabricPerson
+    :param person:
+    :return pl: a PeopleLong
+    """
+    response = PeopleLong()
+
+    # construct response object
+    response.uuid = person.uuid
+    response.name = person.name
+    response.email = person.email
+    if person.eppn != 'None':
+        response.eppn = person.eppn
+    else:
+        response.eppn = ''
+    response.prefs = Preferences(settings=dict_from_json_handle_none(person.settings),
+                                 permissions=dict_from_json_handle_none(person.permissions),
+                                 interests=dict_from_json_handle_none(person.interests))
+    return response
+
+
+def fill_people_short_from_person(person):
+    """
+    Return a PeopleShort based on FabricPerson
+    :param person:
+    :return ps: a PeopleShort
+    """
+    ps = PeopleShort()
+    ps.email = person.email
+    ps.name = person.name
+    ps.uuid = person.uuid
+    if person.eppn != 'None':
+        ps.eppn = person.eppn
+    else:
+        ps.eppn = ''
+    return ps
