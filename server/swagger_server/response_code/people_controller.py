@@ -39,12 +39,14 @@ def people_get(person_name=None, x_page_no=None):  # noqa: E501
     :type person_name: str
     :rtype: List[PeopleShort]
     """
+    print(person_name)
+    print(request.headers)
     if not utils.validate_person(request.headers):
         return "Not a valid FABRIC person", 401, \
                {'X-Error': 'Authorization information is missing or invalid'}
 
     # can't let them query by fewer than 5 characters
-    if len(person_name) < 5:
+    if not person_name or len(person_name) < 5:
         return "Must provide more information", 400, \
                {'X-Error': 'Bad request'}
 

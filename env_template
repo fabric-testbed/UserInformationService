@@ -2,7 +2,7 @@
 SWAGGER_HOST=127.0.0.1:5000
 
 # postgres configuration
-POSTGRES_HOST=api-db
+POSTGRES_HOST=database
 POSTGRES_PORT=5432
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=uiservice
