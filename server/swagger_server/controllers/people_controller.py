@@ -2,28 +2,24 @@ import connexion
 import six
 
 from swagger_server.models.people_long import PeopleLong  # noqa: E501
-from swagger_server.models.people_short import PeopleShort  # noqa: E501
-from swagger_server import util
 import swagger_server.response_code.people_controller as pc
 
 
-def people_get(person_name=None, x_page_no=None):  # noqa: E501
-    """list of people
+def people_get(person_name=None):  # noqa: E501
+    """list of people (open to any valid user)
 
     List of people # noqa: E501
 
     :param person_name: Search People by Name (ILIKE)
     :type person_name: str
-    :param x_page_no: Page number of results (25 per page)
-    :type x_page_no: str
 
     :rtype: List[PeopleShort]
     """
-    return pc.people_get(person_name, x_page_no)
+    return pc.people_get(person_name)
 
 
 def people_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501
-    """person details by OIDC Claim sub
+    """person details by OIDC Claim sub (open only to self)
 
     Person details by OIDC Claim sub # noqa: E501
 
@@ -36,7 +32,7 @@ def people_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501
 
 
 def people_uuid_get(uuid):  # noqa: E501
-    """person details by UUID
+    """person details by UUID (open only to self)
 
     Person details by UUID # noqa: E501
 
@@ -46,3 +42,16 @@ def people_uuid_get(uuid):  # noqa: E501
     :rtype: PeopleLong
     """
     return pc.people_uuid_get(uuid)
+
+
+def uuid_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501
+    """get person UUID based on their OIDC claim sub (open to any valid user)
+
+    person UUID based on their OIDC claim sub # noqa: E501
+
+    :param oidc_claim_sub: 
+    :type oidc_claim_sub: str
+
+    :rtype: str
+    """
+    return pc.uuid_oidc_claim_sub_get(oidc_claim_sub)

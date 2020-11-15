@@ -15,7 +15,7 @@ class TestDefaultController(BaseTestCase):
     def test_version_get(self):
         """Test case for version_get
 
-        version
+        version (open)
         """
         response = self.client.open(
             '//version',

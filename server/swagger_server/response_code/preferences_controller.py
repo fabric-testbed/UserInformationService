@@ -25,12 +25,13 @@
 # Author: Ilya Baldin (ibaldin@renci.org) Michael Stealey (stealey@renci.org)
 
 import json
+from flask import request
 
-from swagger_server import MOCK_SERVICE, log
+from swagger_server import log
 from swagger_server.database import Session
 from swagger_server.models.preferences import Preferences
 from swagger_server.database.models import FabricPerson, PreferenceType
-from .utils import validate_uuid_by_oidc_claim, dict_from_json_handle_none
+import swagger_server.response_code.utils as utils
 
 
 OKRETURN = "OK"
@@ -40,18 +41,14 @@ def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
     """
     Get user preferences as a string from the database
     """
-    if MOCK_SERVICE:
-        log.info("Mock service enabled, skipping validation")
-    else:
-        log.info("Validating OIDC claim UUID match")
-        if not validate_uuid_by_oidc_claim(uuid):
-            log.info("OIDC Claim did not pass validation")
-            return "OIDC Claim Sub doesnt match UUID", 401, \
-                   {'X-Error': 'Authorization information is missing or invalid'}
+    uuid = str(uuid).strip()
+    if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
+        return "OIDC Claim Sub doesnt match UUID", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
 
     # get preference by type
     if preftype not in PreferenceType.__members__.keys():
-        return 'Invalid preference type {0}'.format(str(preftype)), 400, {'X-Error': 'Invalid parameter'}
+        return 'Invalid preference type {0}'.format(preftype), 400, {'X-Error': 'Invalid parameter'}
 
     session = Session()
     try:
@@ -60,17 +57,17 @@ def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
         query_result = query.all()
 
         if len(query_result) == 0:
-            return 'Person UUID not found: {0}'.format(str(uuid)), 404, \
+            return 'Person UUID not found: {0}'.format(uuid), 404, \
                    {'X-Error': 'People Not Found'}
 
         if len(query_result) > 1:
             log.warn(f"Duplicate UUID {uuid} detected")
-            return 'Duplicate UUID Found: {0}'.format(str(uuid)), 500, {'X-Error': 'Duplicate UUID found'}
+            return 'Duplicate UUID Found: {0}'.format(uuid), 500, {'X-Error': 'Duplicate UUID found'}
 
         if getattr(query_result[0], preftype) is not None:
             response = json.loads(getattr(query_result[0], preftype))
         else:
-            return 'Preference {0} for UUID {1} not found'.format(preftype, str(uuid)), \
+            return 'Preference {0} for UUID {1} not found'.format(preftype, uuid), \
                    204, {'X-Error': 'Preference not found'}
 
         if not isinstance(response, dict):
@@ -85,14 +82,10 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E5
     """
     Set user preferences as a string in the database
     """
-    if MOCK_SERVICE:
-        log.info("Mock service enabled, skipping validation")
-    else:
-        log.info("Validating OIDC claim UUID match")
-        if not validate_uuid_by_oidc_claim(uuid):
-            log.info("OIDC Claim did not pass validation")
-            return "OIDC Claim Sub doesnt match UUID", 401, \
-                   {'X-Error': 'Authorization information is missing or invalid'}
+    uuid = str(uuid).strip()
+    if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
+        return "OIDC Claim Sub doesnt match UUID", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
 
     # put preference by type
     if preftype not in PreferenceType.__members__.keys():
@@ -105,10 +98,10 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E5
         query_result = query.all()
 
         if len(query_result) == 0:
-            return 'Person UUID Not Found: {0}'.format(str(uuid)), 404, {'X-Error': 'Person UUID Not Found'}
+            return 'Person UUID Not Found: {0}'.format(uuid), 404, {'X-Error': 'Person UUID Not Found'}
 
         if len(query_result) > 1:
-            return 'Duplicate UUID Found: {0}'.format(str(uuid)), 500, {'X-Error': 'Duplicate UUID found'}
+            return 'Duplicate UUID Found: {0}'.format(uuid), 500, {'X-Error': 'Duplicate UUID found'}
 
         person = query_result[0]
 
@@ -126,14 +119,10 @@ def preferences_uuid_get(uuid):  # noqa: E501
     """
     Get all user preferences as a single object
     """
-    if MOCK_SERVICE:
-        log.info("Mock service enabled, skipping validation")
-    else:
-        log.info("Validating OIDC claim UUID match")
-        if not validate_uuid_by_oidc_claim(uuid):
-            log.info("OIDC Claim did not pass validation")
-            return "OIDC Claim Sub doesnt match UUID", 401, \
-                   {'X-Error': 'Authorization information is missing or invalid'}
+    uuid = str(uuid).strip()
+    if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
+        return "OIDC Claim Sub doesnt match UUID", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
 
     session = Session()
     try:
@@ -142,16 +131,16 @@ def preferences_uuid_get(uuid):  # noqa: E501
         query_result = query.all()
 
         if len(query_result) == 0:
-            return 'Person UUID Not Found: {0}'.format(str(uuid)), 404, {'X-Error': 'Person UUID Not Found'}
+            return 'Person UUID Not Found: {0}'.format(uuid), 404, {'X-Error': 'Person UUID Not Found'}
 
         if len(query_result) > 1:
-            return 'Duplicate UUID Found: {0}'.format(str(uuid)), 500, {'X-Error': 'Duplicate UUID found'}
+            return 'Duplicate UUID Found: {0}'.format(uuid), 500, {'X-Error': 'Duplicate UUID found'}
 
         person = query_result[0]
 
-        response = Preferences(settings=dict_from_json_handle_none(person.settings),
-                               permissions=dict_from_json_handle_none(person.permissions),
-                               interests=dict_from_json_handle_none(person.interests))
+        response = Preferences(settings=utils.dict_from_json_handle_none(person.settings),
+                               permissions=utils.dict_from_json_handle_none(person.permissions),
+                               interests=utils.dict_from_json_handle_none(person.interests))
         return response
     finally:
         session.close()

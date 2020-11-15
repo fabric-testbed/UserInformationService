@@ -7,7 +7,7 @@ import swagger_server.response_code.default_controller as dc
 
 
 def version_get():  # noqa: E501
-    """version
+    """version (open)
 
     Version # noqa: E501
 

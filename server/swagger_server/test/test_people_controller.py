@@ -16,14 +16,12 @@ class TestPeopleController(BaseTestCase):
     def test_people_get(self):
         """Test case for people_get
 
-        list of people
+        list of people (open to any valid user)
         """
         query_string = [('person_name', 'person_name_example')]
-        headers = [('x_page_no', 'x_page_no_example')]
         response = self.client.open(
             '//people',
             method='GET',
-            headers=headers,
             query_string=query_string)
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
@@ -31,7 +29,7 @@ class TestPeopleController(BaseTestCase):
     def test_people_oidc_claim_sub_get(self):
         """Test case for people_oidc_claim_sub_get
 
-        person details by OIDC Claim sub
+        person details by OIDC Claim sub (open only to self)
         """
         query_string = [('oidc_claim_sub', 'oidc_claim_sub_example')]
         response = self.client.open(
@@ -44,11 +42,24 @@ class TestPeopleController(BaseTestCase):
     def test_people_uuid_get(self):
         """Test case for people_uuid_get
 
-        person details by UUID
+        person details by UUID (open only to self)
         """
         response = self.client.open(
             '//people/{uuid}'.format(uuid='uuid_example'),
             method='GET')
+        self.assert200(response,
+                       'Response body is : ' + response.data.decode('utf-8'))
+
+    def test_uuid_oidc_claim_sub_get(self):
+        """Test case for uuid_oidc_claim_sub_get
+
+        get person UUID based on their OIDC claim sub (open to any valid user)
+        """
+        query_string = [('oidc_claim_sub', 'oidc_claim_sub_example')]
+        response = self.client.open(
+            '//uuid/oidc_claim_sub',
+            method='GET',
+            query_string=query_string)
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
 

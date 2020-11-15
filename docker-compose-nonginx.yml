@@ -1,10 +1,10 @@
 version: '3.8'
 services:
-  api-server:
+  server:
     build:
       context: ./
       dockerfile: Dockerfile
-    container_name: uis-api-server
+    container_name: api-server
     depends_on:
       - database
     environment:
@@ -22,18 +22,18 @@ services:
       - USER_DATA=${USER_DATA:-none}
     ports:
       - 5000:5000
-#    networks:
-#      - frontend
-#      - backend
+    networks:
+      - frontend
+      - backend
     restart: on-failure
 
   database:
     image: library/postgres:12
-    container_name: uis-database
+    container_name: api-db
     ports:
       - 5432:5432
-#    networks:
-#      - backend
+    networks:
+      - backend
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uiservice}
@@ -41,27 +41,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-postgres}
     restart: on-failure
 
-  nginx:
-    image: library/nginx:1
-    container_name: uis-nginx
-    ports:
-      - 8080:80
-      - 8443:443
-    volumes:
-      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
-      - ./ssl:/etc/ssl
-    restart: on-failure
-
-  vouch-proxy:
-    container_name: uis-vouch-proxy
-    image: voucher/vouch-proxy
-    ports:
-      - 9090:9090
-    volumes:
-      - ./vouch:/config
-    restart: unless-stopped
-
-#networks:
-#  frontend:
-#  backend:
-#    internal: true
+networks:
+  frontend:
+  backend:
+    internal: true

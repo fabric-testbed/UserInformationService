@@ -148,6 +148,36 @@ class PreferenceType(Enum):
     interests = 3
 
 
+@unique
+class InsertOutcome(Enum):
+    OK = 0
+    UNIQUE_FIELD_MISSING = 1
+    DUPLICATE_FOUND = 2
+
+
+def insert_unique_person(person: FabricPerson, session) -> InsertOutcome:
+    """
+    Insert a unique person without creating a duplicate, based on
+    OIDC claim sub. Does session.add(), but DOES NOT do session.commit()
+    :return val: 0 - OK, 1 - OIDC claim sub missing, 2 - duplicate
+    entry
+    """
+    if person.oidc_claim_sub is None:
+        return InsertOutcome.UNIQUE_FIELD_MISSING
+
+    query = session.query(FabricPerson).\
+        filter(FabricPerson.oidc_claim_sub == person.oidc_claim_sub)
+
+    query_result = query.all()
+
+    if len(query_result) != 0:
+        return InsertOutcome.DUPLICATE_FOUND
+
+    session.add(person)
+
+    return InsertOutcome.OK
+
+
 if __name__ == "__main__":
     print("[INFO] Creating tables")
     from swagger_server.database import engine

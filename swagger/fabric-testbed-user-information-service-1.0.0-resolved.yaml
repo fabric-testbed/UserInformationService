@@ -43,7 +43,7 @@ paths:
     get:
       tags:
       - default
-      summary: version
+      summary: version (open)
       description: Version
       responses:
         "200":
@@ -52,11 +52,40 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Version'
+  /uuid/oidc_claim_sub:
+    get:
+      tags:
+      - people
+      summary: get person UUID based on their OIDC claim sub (open to any valid user)
+      description: person UUID based on their OIDC claim sub
+      parameters:
+      - name: oidc_claim_sub
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
   /people:
     get:
       tags:
       - people
-      summary: list of people
+      summary: list of people (open to any valid user)
       description: List of people
       parameters:
       - name: person_name
@@ -65,14 +94,6 @@ paths:
         required: false
         style: form
         explode: true
-        schema:
-          type: string
-      - name: X-PageNo
-        in: header
-        description: Page number of results (25 per page)
-        required: false
-        style: simple
-        explode: false
         schema:
           type: string
       responses:
@@ -96,7 +117,7 @@ paths:
     get:
       tags:
       - people
-      summary: person details by OIDC Claim sub
+      summary: person details by OIDC Claim sub (open only to self)
       description: Person details by OIDC Claim sub
       parameters:
       - name: oidc_claim_sub
@@ -128,7 +149,7 @@ paths:
     get:
       tags:
       - people
-      summary: person details by UUID
+      summary: person details by UUID (open only to self)
       description: Person details by UUID
       parameters:
       - name: uuid
@@ -158,7 +179,7 @@ paths:
     get:
       tags:
       - preferences
-      summary: get user preferences of specific type (settings, permissions or interests)
+      summary: get user preferences of specific type (settings, permissions or interests; open only to self)
       description: User preferences (returns sane defaults if user valid, but preferences not available)
       parameters:
       - name: preftype
@@ -195,7 +216,7 @@ paths:
     put:
       tags:
       - preferences
-      summary: update user preferences by type
+      summary: update user preferences by type (open only to self)
       description: Update specific type of user preferences
       parameters:
       - name: uuid
@@ -239,7 +260,7 @@ paths:
     get:
       tags:
       - preferences
-      summary: get all user preferences as an object
+      summary: get all user preferences as an object (open only to self)
       description: Get all preferences for a user
       parameters:
       - name: uuid
@@ -268,7 +289,7 @@ paths:
     get:
       tags:
       - publications
-      summary: get user's author IDs (Scopus, Orcid etc.)
+      summary: get user's author IDs (Scopus, Orcid etc.; open only to self)
       parameters:
       - name: uuid
         in: path
@@ -298,7 +319,7 @@ paths:
     get:
       tags:
       - publications
-      summary: get users specific author ID
+      summary: get users specific author ID (open only to self)
       parameters:
       - name: idtype
         in: path
@@ -334,7 +355,7 @@ paths:
     put:
       tags:
       - publications
-      summary: update user's specific author ID
+      summary: update user's specific author ID (open only to self)
       parameters:
       - name: idtype
         in: path

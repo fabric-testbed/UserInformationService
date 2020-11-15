@@ -1,9 +1,37 @@
+#!/usr/bin/env python3
+# MIT License
+#
+# Copyright (c) 2020 FABRIC Testbed
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy
+# of this software and associated documentation files (the "Software"), to deal
+# in the Software without restriction, including without limitation the rights
+# to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+# copies of the Software, and to permit persons to whom the Software is
+# furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all
+# copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+# IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+# FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+# AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+# LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+# OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+# SOFTWARE.
+#
+#
+# Author: Ilya Baldin (ibaldin@renci.org) Michael Stealey (stealey@renci.org)
 from uuid import uuid4
+import datetime
+import re
 
 import psycopg2
+from ldap3 import Connection, Server, ALL
 
-from swagger_server.database import Session
-from swagger_server.database.models import FabricPerson, AuthorID
+from swagger_server.database import Session, ldap_params
+from swagger_server.database.models import FabricPerson, AuthorID, InsertOutcome, insert_unique_person
 
 
 mock_people = [
@@ -85,6 +113,49 @@ def run_sql_commands(commands):
             session.close()
 
 
+# Attributes to request from COmanage LDAP
+ATTRIBUTES = [
+    'cn',
+    'eduPersonPrincipalName',
+    'isMemberOf',
+    'mail',
+    'uid'
+]
+
+
+def get_people_list():
+    """
+    Get a list of people from COmanage
+    """
+    ldap_search_filter = '(objectclass=person)'
+    server = Server(ldap_params['host'], use_ssl=True, get_info=ALL)
+    conn = Connection(server, ldap_params['user'],
+                      ldap_params['password'], auto_bind=True)
+    objects_found = conn.search(
+        ldap_params['search_base'],
+        ldap_search_filter,
+        attributes=ATTRIBUTES
+    )
+    people = []
+    if objects_found:
+        for entry in conn.entries:
+            obj = {}
+            for attr in ATTRIBUTES:
+                if attr == 'isMemberOf':
+                    print(str(attr) + ": " + str(entry[str(attr)]).strip("'"))
+                    groups = []
+                    for group in entry[attr]:
+                        if re.search("(CO:COU:(?:\w+-{1})+\w+:members:active)", str(group)):
+                            groups.append(str(group))
+                    obj[str(attr)] = groups
+                else:
+                    print(str(attr) + ": " + str(entry[str(attr)]))
+                    obj[str(attr)] = str(entry[str(attr)])
+            people.append(obj)
+    conn.unbind()
+    return people
+
+
 def load_version_data():
     commands = (
         """
@@ -94,12 +165,17 @@ def load_version_data():
         DO UPDATE SET version = Excluded.version, gitsha1 = Excluded.gitsha1
         """
     )
-    print("[INFO] attempt to load version data")
     run_sql_commands(commands)
 
 
-def load_people_data():
-    people = mock_people
+def load_people_data(flag):
+
+    if flag == 'mock':
+        people = mock_people
+    elif flag == 'ldap':
+        people = get_people_list()
+    else:
+        return
 
     session = Session()
 
@@ -108,6 +184,7 @@ def load_people_data():
         print(f"Adding {person.get('cn')} with GUID {people_uuid} to database")
         dbperson = FabricPerson()
         dbperson.uuid = people_uuid
+        dbperson.registered_on = datetime.datetime.utcnow()
         dbperson.oidc_claim_sub = person.get('uid')
         dbperson.email = person.get('mail')
         dbperson.name = person.get('cn')
@@ -129,10 +206,12 @@ def load_people_data():
             alt_ids.append(AuthorID(alt_id_type='scopus',
                                     alt_id_value=person.get('orcid')))
         dbperson.alt_ids = alt_ids
-        session.add(dbperson)
+        ret = insert_unique_person(dbperson, session)
+        if ret != InsertOutcome.OK:
+            print(f"Unable to add entry for {dbperson.oidc_claim_sub} due to {ret}")
     session.commit()
 
 
 if __name__ == '__main__':
     load_version_data()
-    load_people_data()
+    load_people_data('mock')

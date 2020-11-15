@@ -16,7 +16,7 @@ class TestPublicationsController(BaseTestCase):
     def test_authorids_idtype_uuid_get(self):
         """Test case for authorids_idtype_uuid_get
 
-        get users specific author ID
+        get users specific author ID (open only to self)
         """
         response = self.client.open(
             '//authorids/{idtype}/{uuid}'.format(idtype=AuthorIdType(), uuid='uuid_example'),
@@ -27,7 +27,7 @@ class TestPublicationsController(BaseTestCase):
     def test_authorids_idtype_uuid_put(self):
         """Test case for authorids_idtype_uuid_put
 
-        update user's specific author ID
+        update user's specific author ID (open only to self)
         """
         query_string = [('idval', 'idval_example')]
         response = self.client.open(
@@ -40,7 +40,7 @@ class TestPublicationsController(BaseTestCase):
     def test_authorids_uuid_get(self):
         """Test case for authorids_uuid_get
 
-        get user's author IDs (Scopus, Orcid etc.)
+        get user's author IDs (Scopus, Orcid etc.; open only to self)
         """
         response = self.client.open(
             '//authorids/{uuid}'.format(uuid='uuid_example'),
