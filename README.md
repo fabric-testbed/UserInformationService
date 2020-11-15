@@ -28,12 +28,11 @@ The initial implementation provides several entrypoints:
 
 ![UIService API](imgs/api-screenshot.png)
 
-Intended for the portal to store and retrieve different types of preferences. 
-Only returned to the user herself. These are opaque strings to UIS and are encoded and interpreted 
+There are several entrypoints intended for the portal to store and retrieve different types of preferences on
+behalf of the user. These are opaque JSON dictionaries to UIS and are encoded and interpreted 
 by the portal logic. Preferences come in three separate flavors: `settings` for portal settings,
 `permissions` - for personal information visibility permissions and `interests` - for social interests 
 (to enable e.g. to 'follow' projects).
-
 The `/preferences/{uuid}` call returns a Preferences structure:
 ```
 Preferences:
