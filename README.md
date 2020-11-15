@@ -26,60 +26,13 @@ user behalf
 
 The initial implementation provides several entrypoints:
 
-### Version
-
-The project registry API is versioned based on the release found in GitHub.
-
-API `version`:
-
-Resource | Action | Input | Output
-:--------|:----:|:---:|:---:
-`/version` | GET: current API version | NA | Version format
-
-Example: Version format
-
-```json
-{
-  "gitsha1": "Release SHA as string",
-  "version": "Release version as string"
-}
-```
-
-## People
-
-Provides the ability to search known users. Information provided about users is 
-(this information is considered public) and can be invoked by any authenticated user:
-
-
-API `/people`:
-
-| Resource | Action | Input | Output |
-:--------|:----:|:---:|:---:
-`/people` | GET: list of all people | `person_name` optional query parameter, `X-PageNo` optional header parameter | Array of People Short format (25 per page)
-
-Returns a People_Short structure:
-```
-uuid:
-  type: string
-name:
-  type: string
-email:
-  type: string
-```
-
-## Preferences
+![UIService API](imgs/api-screenshot.png)
 
 Intended for the portal to store and retrieve different types of preferences. 
 Only returned to the user herself. These are opaque strings to UIS and are encoded and interpreted 
 by the portal logic. Preferences come in three separate flavors: `settings` for portal settings,
 `permissions` - for personal information visibility permissions and `interests` - for social interests 
 (to enable e.g. to 'follow' projects).
-
-| Resource | Action | Input | Output |
-:--------|:----:|:---:|:---:
-| /preferences/{preftype}/{uuid} | GET: get specific type of preference | preference type and uuid of the user | JSON string encoding preferences |
-| /preferences/{preftype}/{uuid} | PUT: update specific type of preference | preference type and uuid of the user| Updated value of the preference |
-| /preferences/{uuid} | GET: get all preferences as an object | uuid of the user | JSON structure containing all preferences |
 
 The `/preferences/{uuid}` call returns a Preferences structure:
 ```
@@ -95,7 +48,8 @@ Preferences:
 
 # Database
 
-Uses postgres. 
+Uses postgres. Schema is defined via ORM under
+[server/swagger_server/database/models.py](server/swagger_server/database/models.py)
 
 # Testing
 
@@ -105,26 +59,28 @@ Copy and edit [env_template](env_template) to customize env file for specific ty
 
 There are multiple ways to test with different arrangements of containers:
 - [Simple 'no-Nginx' setup](docker-compose-nonginx.yml), in which just two dockers are stood up. Typically used for 
-basic testing without any authentication.
+basic testing without any authentication. Once the containers are up connect to `http://localhost:5000/ui` to 
+interact with the service.
     - API server (under uWSGI)
     - Postgres
-- ['Nginx'](docker-compose-nginx.yml), in which an additional Nginx container is stood up. Can be used to test Nginx
-URL routing:
-    - Nginx
-    - API Server
-    - Postgres
-- ['Vouch Proxy' local](docker-compose-vouch-proxy-local.yml), configured to run on localhost, adds containers for. Used for
-testing proper authentication with CILogon, albeit from localhost only and using provided [self-signed SSL certs](ssl/): 
+- ['Vouch Proxy' local](docker-compose.yml), configured to run on localhost, adds containers for. Used for
+testing proper authentication with CILogon, albeit from localhost only and using provided [self-signed SSL certs](ssl/). 
+Once the containers are up connect to https://127.0.0.1:8443/ui to interact with the service (please not not to use 
+`localhost`) 
     - Nginx
     - API Server
     - Vouch Proxy
     - Postgres 
 
-Once the containers are up connect to `http://localhost:5000/ui` to interact with the service. 
-
 # Deployment
 
-...
+Copy [vouch/config_template](vouch/config_template) to `vouch/config`, edit at least the following parameters:
+- `vouch/publicAccess` set to `false` (unless testing)
+- `jwt/secret` must be changed - if using in production, it likely needs to be the same as on all other services,
+e.g. Project Registry
+- `cookie/domain` must be set to appropraite domain
+- `oauth/client_id` and `oauth/client_secret` must match those issued to this service in CI Logon as OIDC client
+- `oauth/callback_url` must match the callback URL set in CI Logon
 
 # References
 
