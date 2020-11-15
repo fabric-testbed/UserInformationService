@@ -73,7 +73,14 @@ Once the containers are up connect to https://127.0.0.1:8443/ui to interact with
 
 # Deployment
 
-Copy [vouch/config_template](vouch/config_template) to `vouch/config`, edit at least the following parameters:
+Production deployment is meant to mimic the 'Vouch Proxy' local docker deployment discussed above, but updated with
+proper secrets, certs etc. You must edit the following files to support a production deployment:
+- [nginx/default.conf](vouch/default.conf) - API routing
+- [vouch/config_template](vouch/config_template) - Vouch Proxy configuration discussed below
+- [env_template](env_template) - environment settings that determine the behavior of docker-compose
+
+To configure Vouch Proxy, copy [vouch/config_template](vouch/config_template) to `vouch/config`, edit at least the 
+following parameters:
 - `vouch/publicAccess` set to `false` (unless testing)
 - `jwt/secret` must be changed - if using in production, it likely needs to be the same as on all other services,
 e.g. Project Registry
