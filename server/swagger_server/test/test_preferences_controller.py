@@ -16,7 +16,7 @@ class TestPreferencesController(BaseTestCase):
     def test_preferences_preftype_uuid_get(self):
         """Test case for preferences_preftype_uuid_get
 
-        get user preferences of specific type (settings, permissions or interests)
+        get user preferences of specific type (settings, permissions or interests; open only to self)
         """
         response = self.client.open(
             '//preferences/{preftype}/{uuid}'.format(preftype=PreferenceType(), uuid='uuid_example'),
@@ -27,7 +27,7 @@ class TestPreferencesController(BaseTestCase):
     def test_preferences_preftype_uuid_put(self):
         """Test case for preferences_preftype_uuid_put
 
-        update user preferences by type
+        update user preferences by type (open only to self)
         """
         query_string = [('preferences', None)]
         response = self.client.open(
@@ -40,7 +40,7 @@ class TestPreferencesController(BaseTestCase):
     def test_preferences_uuid_get(self):
         """Test case for preferences_uuid_get
 
-        get all user preferences as an object
+        get all user preferences as an object (open only to self)
         """
         response = self.client.open(
             '//preferences/{uuid}'.format(uuid='uuid_example'),

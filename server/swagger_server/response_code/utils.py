@@ -33,7 +33,7 @@ import datetime
 from swagger_server.models import Preferences, PeopleShort
 from swagger_server.models.people_long import PeopleLong
 from swagger_server.database import Session
-from swagger_server.database.models import FabricPerson
+from swagger_server.database.models import FabricPerson, InsertOutcome, insert_unique_person
 from swagger_server import SKIP_CILOGON_VALIDATION, log
 
 
@@ -173,12 +173,13 @@ def validate_person(headers):
     return True
 
 
-def create_new_fabric_person(headers):
+def create_new_fabric_person(headers, check_unique=False):
     """
     Extract info from identity token and create a FabricPerson entry for this person,
     including a new UUID. Return a PeopleLong based on that info.
     :param headers: request headers with cookie, ID token etc
-    :return ps: a PeopleLong entry for the new user
+    :param check_unique: check for uniqueness before insert
+    :return ps: a PeopleLong entry for the new user or None on error
     """
     id_token = headers.get(ID_TOKEN_NAME)
     # FIXME: should we turn verify on?
@@ -193,8 +194,17 @@ def create_new_fabric_person(headers):
         dbperson.oidc_claim_sub = decoded.get(SUB_CLAIM)
         dbperson.name = decoded.get(NAME_CLAIM)
         dbperson.email = decoded.get(EMAIL_CLAIM)
-        session.add(dbperson)
-        session.commit()
+        if check_unique:
+            ret = insert_unique_person(dbperson, session)
+            if ret == InsertOutcome.OK:
+                session.commit()
+            else:
+                log.error(f"Unable to insert entry for user {decoded.get(SUB_CLAIM)} "
+                          f"with UUID {dbperson.uuid} due to {ret}")
+                return None
+        else:
+            session.add(dbperson)
+            session.commit()
         pl = fill_people_long_from_person(dbperson)
         return pl
     finally:

@@ -31,7 +31,7 @@ import psycopg2
 from ldap3 import Connection, Server, ALL
 
 from swagger_server.database import Session, ldap_params
-from swagger_server.database.models import FabricPerson, AuthorID
+from swagger_server.database.models import FabricPerson, AuthorID, InsertOutcome, insert_unique_person
 
 
 mock_people = [
@@ -206,7 +206,9 @@ def load_people_data(flag):
             alt_ids.append(AuthorID(alt_id_type='scopus',
                                     alt_id_value=person.get('orcid')))
         dbperson.alt_ids = alt_ids
-        session.add(dbperson)
+        ret = insert_unique_person(dbperson, session)
+        if ret != InsertOutcome.OK:
+            print(f"Unable to add entry for {dbperson.oidc_claim_sub} due to {ret}")
     session.commit()
 
 

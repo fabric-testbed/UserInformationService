@@ -31,22 +31,23 @@ from swagger_server.database.models import FabricPerson
 from swagger_server.models.people_long import PeopleLong  # noqa: E501
 import swagger_server.response_code.utils as utils
 
+QUERY_CHARACTER_MIN = 5
 
-def people_get(person_name=None, x_page_no=None):  # noqa: E501
+
+def people_get(person_name=None):  # noqa: E501
     """list of people
     List of people # noqa: E501
     :param person_name: Search People by Name (ILIKE)
     :type person_name: str
     :rtype: List[PeopleShort]
     """
-    print(person_name)
-    print(request.headers)
+    person_name = str(person_name).strip()
     if not utils.validate_person(request.headers):
         return "Not a valid FABRIC person", 401, \
                {'X-Error': 'Authorization information is missing or invalid'}
 
     # can't let them query by fewer than 5 characters
-    if not person_name or len(person_name) < 5:
+    if not person_name or len(person_name) < QUERY_CHARACTER_MIN:
         return "Must provide more information", 400, \
                {'X-Error': 'Bad request'}
 
@@ -78,6 +79,7 @@ def people_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501
     :type oidc_claim_sub: str
     :rtype: PeopleLong
     """
+    oidc_claim_sub = str(oidc_claim_sub).strip()
     if not utils.validate_oidc_claim(request.headers, oidc_claim_sub):
         return "OIDC Claim Sub doesnt match", 401, \
                {'X-Error': 'Authorization information is missing or invalid'}
@@ -90,7 +92,7 @@ def people_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501
 
         if len(query_result) == 0:
             # create a new FabricPerson in db, fill in information from the claim sub
-            # and returns a PeopleLong
+            # and returns a PeopleLong (don't check uniqueness - we just did)
             pl = utils.create_new_fabric_person(request.headers)
             return pl
         else:
@@ -111,6 +113,7 @@ def people_uuid_get(uuid):  # noqa: E501
     :type uuid: str
     :rtype: PeopleLong
     """
+    uuid = str(uuid).strip()
     if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
         return "OIDC Claim Sub doesnt match UUID", 401, \
                {'X-Error': 'Authorization information is missing or invalid'}
@@ -131,3 +134,28 @@ def people_uuid_get(uuid):  # noqa: E501
     person = query_result[0]
 
     return utils.fill_people_long_from_person(person)
+
+
+def uuid_oidc_claim_sub_get(oidc_claim_sub):
+    """
+    get the UUID mapped to this claim sub (open to any valid user)
+    """
+    oidc_claim_sub = str(oidc_claim_sub).strip()
+    if not utils.validate_person(request.headers):
+        return "Not a valid FABRIC person", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
+
+    session = Session()
+    query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
+    query_result = query.all()
+
+    if len(query_result) == 0:
+        return 'Person UUID not found: {0}'.format(oidc_claim_sub), 404, \
+               {'X-Error': 'People Not Found'}
+    else:
+        if len(query_result) > 1:
+            return 'Duplicate OIDC Claim Found: {0}'.format(oidc_claim_sub), 500, \
+                   {'X-Error': 'Duplicate person found'}
+
+    person = query_result[0]
+    return person.uuid

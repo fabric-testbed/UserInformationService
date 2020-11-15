@@ -8,7 +8,7 @@ import swagger_server.response_code.preferences_controller as pc
 
 
 def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
-    """get user preferences of specific type (settings, permissions or interests)
+    """get user preferences of specific type (settings, permissions or interests; open only to self)
 
     User preferences (returns sane defaults if user valid, but preferences not available) # noqa: E501
 
@@ -25,7 +25,7 @@ def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
 
 
 def preferences_preftype_uuid_put(uuid, preftype, preferences):  # noqa: E501
-    """update user preferences by type
+    """update user preferences by type (open only to self)
 
     Update specific type of user preferences # noqa: E501
 
@@ -44,7 +44,7 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences):  # noqa: E501
 
 
 def preferences_uuid_get(uuid):  # noqa: E501
-    """get all user preferences as an object
+    """get all user preferences as an object (open only to self)
 
     Get all preferences for a user # noqa: E501
 

@@ -8,7 +8,7 @@ import swagger_server.response_code.publications_controller as pc
 
 
 def authorids_idtype_uuid_get(idtype, uuid):  # noqa: E501
-    """get users specific author ID
+    """get users specific author ID (open only to self)
 
      # noqa: E501
 
@@ -25,7 +25,7 @@ def authorids_idtype_uuid_get(idtype, uuid):  # noqa: E501
 
 
 def authorids_idtype_uuid_put(idtype, uuid, idval):  # noqa: E501
-    """update user&#x27;s specific author ID
+    """update user&#x27;s specific author ID (open only to self)
 
      # noqa: E501
 
@@ -44,7 +44,7 @@ def authorids_idtype_uuid_put(idtype, uuid, idval):  # noqa: E501
 
 
 def authorids_uuid_get(uuid):  # noqa: E501
-    """get user&#x27;s author IDs (Scopus, Orcid etc.)
+    """get user&#x27;s author IDs (Scopus, Orcid etc.; open only to self)
 
      # noqa: E501
 

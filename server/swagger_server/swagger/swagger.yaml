@@ -42,7 +42,7 @@ paths:
     get:
       tags:
       - default
-      summary: version
+      summary: version (open)
       description: Version
       operationId: version_get
       responses:
@@ -53,11 +53,43 @@ paths:
               schema:
                 $ref: '#/components/schemas/Version'
       x-openapi-router-controller: swagger_server.controllers.default_controller
+  /uuid/oidc_claim_sub:
+    get:
+      tags:
+      - people
+      summary: get person UUID based on their OIDC claim sub (open to any valid user)
+      description: person UUID based on their OIDC claim sub
+      operationId: uuid_oidc_claim_sub_get
+      parameters:
+      - name: oidc_claim_sub
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                x-content-type: application/json
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
+      x-openapi-router-controller: swagger_server.controllers.people_controller
   /people:
     get:
       tags:
       - people
-      summary: list of people
+      summary: list of people (open to any valid user)
       description: List of people
       operationId: people_get
       parameters:
@@ -67,14 +99,6 @@ paths:
         required: false
         style: form
         explode: true
-        schema:
-          type: string
-      - name: X_PageNo
-        in: header
-        description: Page number of results (25 per page)
-        required: false
-        style: simple
-        explode: false
         schema:
           type: string
       responses:
@@ -100,7 +124,7 @@ paths:
     get:
       tags:
       - people
-      summary: person details by OIDC Claim sub
+      summary: person details by OIDC Claim sub (open only to self)
       description: Person details by OIDC Claim sub
       operationId: people_oidc_claim_sub_get
       parameters:
@@ -135,7 +159,7 @@ paths:
     get:
       tags:
       - people
-      summary: person details by UUID
+      summary: person details by UUID (open only to self)
       description: Person details by UUID
       operationId: people_uuid_get
       parameters:
@@ -167,7 +191,8 @@ paths:
     get:
       tags:
       - preferences
-      summary: get user preferences of specific type (settings, permissions or interests)
+      summary: get user preferences of specific type (settings, permissions or interests;
+        open only to self)
       description: User preferences (returns sane defaults if user valid, but preferences
         not available)
       operationId: preferences_preftype_uuid_get
@@ -208,7 +233,7 @@ paths:
     put:
       tags:
       - preferences
-      summary: update user preferences by type
+      summary: update user preferences by type (open only to self)
       description: Update specific type of user preferences
       operationId: preferences_preftype_uuid_put
       parameters:
@@ -255,7 +280,7 @@ paths:
     get:
       tags:
       - preferences
-      summary: get all user preferences as an object
+      summary: get all user preferences as an object (open only to self)
       description: Get all preferences for a user
       operationId: preferences_uuid_get
       parameters:
@@ -286,7 +311,7 @@ paths:
     get:
       tags:
       - publications
-      summary: get user's author IDs (Scopus, Orcid etc.)
+      summary: get user's author IDs (Scopus, Orcid etc.; open only to self)
       operationId: authorids_uuid_get
       parameters:
       - name: uuid
@@ -319,7 +344,7 @@ paths:
     get:
       tags:
       - publications
-      summary: get users specific author ID
+      summary: get users specific author ID (open only to self)
       operationId: authorids_idtype_uuid_get
       parameters:
       - name: idtype
@@ -358,7 +383,7 @@ paths:
     put:
       tags:
       - publications
-      summary: update user's specific author ID
+      summary: update user's specific author ID (open only to self)
       operationId: authorids_idtype_uuid_put
       parameters:
       - name: idtype
