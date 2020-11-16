@@ -7,7 +7,7 @@ from swagger_server.database.models import metadata
 from swagger_server.database import engine
 from swagger_server.database.load_data import load_people_data, load_version_data
 
-from .config import config_from_file
+from .config import config_from_file, config_from_env
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("User Information Service")
@@ -20,18 +20,30 @@ metadata.create_all(engine)
 log.info("Loading version table")
 load_version_data()
 
+# load app configuration parameters
+APP_PARAM_PREFIX = "UIS"
+app_params = config_from_env(APP_PARAM_PREFIX)
+
 SKIP_CILOGON_VALIDATION = True
-if os.getenv('SKIP_CILOGON_VALIDATION') == 'false':
+if app_params.get('skip_cilogon_validation', None) == 'false':
     SKIP_CILOGON_VALIDATION = False
 
 LOAD_USER_DATA = 'none'
-if os.getenv('USER_DATA') == 'mock':
+if app_params.get('user_data', None) == 'mock':
     LOAD_USER_DATA = 'mock'
-elif os.getenv('USER_DATA') == 'ldap':
+elif app_params.get('user_data', None) == 'ldap':
     LOAD_USER_DATA = 'ldap'
-
 log.info(f"Loading {LOAD_USER_DATA} user data")
 load_people_data(LOAD_USER_DATA)
+
+QUERY_CHARACTER_MIN = 3
+if app_params.get('search_min_char_count', None) is not None:
+    char_min = int(app_params['search_min_char_count'])
+    if char_min > 0:
+        QUERY_CHARACTER_MIN = char_min
+    else:
+        log.warning(f'Search character limit of {char_min} is not valid, using default instead.')
+log.info(f'Using a search character limit of {QUERY_CHARACTER_MIN} for /people queries')
 
 # Flask initialization for uwsgi (so it can find swagger_server:app)
 app = connexion.App(__name__, specification_dir='./swagger/')

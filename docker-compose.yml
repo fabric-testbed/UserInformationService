@@ -14,12 +14,13 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uiservice}
       - SWAGGER_HOST=${SWAGGER_HOST:-127.0.0.1:5000}
-      - SKIP_CILOGON_VALIDATION=${SKIP_CILOGON_VALIDATION:-false}
       - LDAP_HOST=${LDAP_HOST:-localhost}
       - LDAP_USER=${LDAP_USER:-ldapuser}
       - LDAP_PASSWORD=${LDAP_PASSWORD:-ldappass}
       - LDAP_SEARCH_BASE=${LDAP_SEARCH_BASE:-ldapbase}
-      - USER_DATA=${USER_DATA:-none}
+      - UIS_USER_DATA=${UIS_USER_DATA:-none}
+      - UIS_SKIP_CILOGON_VALIDATION=${UIS_SKIP_CILOGON_VALIDATION:-false}
+      - UIS_SEARCH_MIN_CHAR_COUNT=${UIS_SEARCH_MIN_CHAR_COUNT:-3}
     ports:
       - 5000:5000
 #    networks:

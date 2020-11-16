@@ -29,9 +29,8 @@ from flask import request
 from swagger_server.database import Session
 from swagger_server.database.models import FabricPerson
 from swagger_server.models.people_long import PeopleLong  # noqa: E501
+from swagger_server import QUERY_CHARACTER_MIN
 import swagger_server.response_code.utils as utils
-
-QUERY_CHARACTER_MIN = 5
 
 
 def people_get(person_name=None):  # noqa: E501

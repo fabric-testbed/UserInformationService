@@ -15,7 +15,10 @@ LDAP_USER=user
 LDAP_PASSWORD=password
 LDAP_SEARCH_BASE=searchbase
 
+# App configuration parameters
 # turn off CILogon validation?
-SKIP_CILOGON_VALIDATION=true
+UIS_SKIP_CILOGON_VALIDATION=true
 # load mock data, LDAP or none
-USER_DATA=mock
+UIS_USER_DATA=mock
+# Minimal number of characters that must be specified to search for a person
+UIS_SEARCH_MIN_CHAR_COUNT=3
