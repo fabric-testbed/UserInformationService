@@ -17,6 +17,7 @@ _set_docker_uwsgi_ini() {
     echo "vacuum = true" >> docker_uwsgi.ini
     echo "max-requests = 5000" >> docker_uwsgi.ini
     echo "die-on-term = true" >> docker_uwsgi.ini
+    echo "buffer-size = 32768" >> docker_uwsgi.ini
 }
 
 if [[ "$1" = 'run_server' ]]; then
