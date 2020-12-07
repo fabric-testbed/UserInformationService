@@ -86,7 +86,8 @@ following parameters:
 - `vouch/publicAccess` set to `false` (unless testing)
 - `jwt/secret` must be changed - if using in production, it likely needs to be the same as on all other services,
 e.g. Project Registry
-- `cookie/domain` must be set to appropriate domain (127.0.0.1 only works for testing, set it to FQDN)
+- `cookie/domain` must be set to appropriate domain (127.0.0.1 only works for testing, set it to the domain where the
+  application is deployed - in order for cookies to be valid at other applications within the domain)
 - `oauth/client_id` and `oauth/client_secret` must match those issued to this service in CI Logon as OIDC client
 - `oauth/callback_url` must match the callback URL set in CI Logon
 
