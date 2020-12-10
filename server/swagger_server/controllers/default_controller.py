@@ -2,7 +2,6 @@ import connexion
 import six
 
 from swagger_server.models.version import Version  # noqa: E501
-from swagger_server import util
 import swagger_server.response_code.default_controller as dc
 
 

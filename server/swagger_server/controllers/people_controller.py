@@ -18,19 +18,6 @@ def people_get(person_name=None):  # noqa: E501
     return pc.people_get(person_name)
 
 
-def people_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501
-    """person details by OIDC Claim sub (open only to self)
-
-    Person details by OIDC Claim sub # noqa: E501
-
-    :param oidc_claim_sub: Search People by OIDC Claim sub (exact match only)
-    :type oidc_claim_sub: str
-
-    :rtype: List[PeopleLong]
-    """
-    return pc.people_oidc_claim_sub_get(oidc_claim_sub)
-
-
 def people_uuid_get(uuid):  # noqa: E501
     """person details by UUID (open only to self)
 
@@ -42,6 +29,17 @@ def people_uuid_get(uuid):  # noqa: E501
     :rtype: PeopleLong
     """
     return pc.people_uuid_get(uuid)
+
+
+def people_whoami_get():  # noqa: E501
+    """Details about self from OIDC Claim sub provided in ID token (open only to self)
+
+    Details about self based on key OIDC Claim sub contained in ID token # noqa: E501
+
+
+    :rtype: List[PeopleLong]
+    """
+    return pc.people_whoami_get()
 
 
 def uuid_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501

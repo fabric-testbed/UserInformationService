@@ -14,7 +14,7 @@ class PeopleShort(Model):
 
     Do not edit the class manually.
     """
-    def __init__(self, uuid: str=None, name: str=None, email: str=None, eppn: str=None):  # noqa: E501
+    def __init__(self, uuid: str=None, name: str=None, email: str=None, eppn: str=None, oidc_claim_sub: str=None):  # noqa: E501
         """PeopleShort - a model defined in Swagger
 
         :param uuid: The uuid of this PeopleShort.  # noqa: E501
@@ -25,24 +25,29 @@ class PeopleShort(Model):
         :type email: str
         :param eppn: The eppn of this PeopleShort.  # noqa: E501
         :type eppn: str
+        :param oidc_claim_sub: The oidc_claim_sub of this PeopleShort.  # noqa: E501
+        :type oidc_claim_sub: str
         """
         self.swagger_types = {
             'uuid': str,
             'name': str,
             'email': str,
-            'eppn': str
+            'eppn': str,
+            'oidc_claim_sub': str
         }
 
         self.attribute_map = {
             'uuid': 'uuid',
             'name': 'name',
             'email': 'email',
-            'eppn': 'eppn'
+            'eppn': 'eppn',
+            'oidc_claim_sub': 'oidc_claim_sub'
         }
         self._uuid = uuid
         self._name = name
         self._email = email
         self._eppn = eppn
+        self._oidc_claim_sub = oidc_claim_sub
 
     @classmethod
     def from_dict(cls, dikt) -> 'PeopleShort':
@@ -138,3 +143,24 @@ class PeopleShort(Model):
         """
 
         self._eppn = eppn
+
+    @property
+    def oidc_claim_sub(self) -> str:
+        """Gets the oidc_claim_sub of this PeopleShort.
+
+
+        :return: The oidc_claim_sub of this PeopleShort.
+        :rtype: str
+        """
+        return self._oidc_claim_sub
+
+    @oidc_claim_sub.setter
+    def oidc_claim_sub(self, oidc_claim_sub: str):
+        """Sets the oidc_claim_sub of this PeopleShort.
+
+
+        :param oidc_claim_sub: The oidc_claim_sub of this PeopleShort.
+        :type oidc_claim_sub: str
+        """
+
+        self._oidc_claim_sub = oidc_claim_sub

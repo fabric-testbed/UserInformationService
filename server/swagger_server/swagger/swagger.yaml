@@ -120,22 +120,15 @@ paths:
         "5XX":
           description: Unexpected error
       x-openapi-router-controller: swagger_server.controllers.people_controller
-  /people/oidc_claim_sub:
+  /people/whoami:
     get:
       tags:
       - people
-      summary: person details by OIDC Claim sub (open only to self)
-      description: Person details by OIDC Claim sub
-      operationId: people_oidc_claim_sub_get
-      parameters:
-      - name: oidc_claim_sub
-        in: query
-        description: Search People by OIDC Claim sub (exact match only)
-        required: true
-        style: form
-        explode: true
-        schema:
-          type: string
+      summary: Details about self from OIDC Claim sub provided in ID token (open only
+        to self)
+      description: Details about self based on key OIDC Claim sub contained in ID
+        token
+      operationId: people_whoami_get
       responses:
         "200":
           description: OK
@@ -445,10 +438,13 @@ components:
           type: string
         eppn:
           type: string
+        oidc_claim_sub:
+          type: string
       example:
         eppn: eppn
         name: name
         uuid: uuid
+        oidc_claim_sub: oidc_claim_sub
         email: email
     People_long:
       properties:
@@ -460,12 +456,15 @@ components:
           type: string
         eppn:
           type: string
+        oidc_claim_sub:
+          type: string
         prefs:
           $ref: '#/components/schemas/Preferences'
       example:
         eppn: eppn
         name: name
         uuid: uuid
+        oidc_claim_sub: oidc_claim_sub
         email: email
         prefs:
           settings: {}
