@@ -79,9 +79,12 @@ def people_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501
     :rtype: PeopleLong
     """
     oidc_claim_sub = str(oidc_claim_sub).strip()
-    if not utils.validate_oidc_claim(request.headers, oidc_claim_sub):
-        return "OIDC Claim Sub doesnt match", 401, \
-               {'X-Error': 'Authorization information is missing or invalid'}
+    #if not utils.validate_oidc_claim(request.headers, oidc_claim_sub):
+    #    return "OIDC Claim Sub doesnt match", 401, \
+    #           {'X-Error': 'Authorization information is missing or invalid'}
+
+    # trust the token, get claim sub from it
+    oidc_claim_sub = utils.extract_oidc_claim(request.headers)
 
     session = Session()
     try:
