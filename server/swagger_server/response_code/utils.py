@@ -157,6 +157,26 @@ def validate_oidc_claim(headers, oidc_claim_sub):
     return header_sub == oidc_claim_sub
 
 
+def extract_oidc_claim(headers):
+    """
+    Extract OIDC claim sub from header identity token and return it.
+    :param headers:
+    :return string:
+    """
+
+    id_token = headers.get(ID_TOKEN_NAME)
+    if id_token is None:
+        log.info("ID token absent")
+        return None
+
+    # FIXME: should we turn verify on?
+    decoded = jwt.decode(id_token, verify=False)
+    header_sub = decoded.get(SUB_CLAIM)
+
+    log.info(f"Extracted sub from token: {header_sub}")
+    return header_sub
+
+
 def validate_person(headers):
     """
     Validate that this represents a valid FABRIC person based on header information.
