@@ -1,9 +1,7 @@
 import connexion
 import six
 
-from swagger_server.models.preference_type import PreferenceType  # noqa: E501
 from swagger_server.models.preferences import Preferences  # noqa: E501
-from swagger_server import util
 import swagger_server.response_code.preferences_controller as pc
 
 

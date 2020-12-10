@@ -71,18 +71,11 @@ def people_get(person_name=None):  # noqa: E501
         session.close()
 
 
-def people_oidc_claim_sub_get(oidc_claim_sub):  # noqa: E501
-    """person details by OIDC Claim sub
-    Person details by OIDC Claim sub # noqa: E501
-    :param oidc_claim_sub: Search People by OIDC Claim sub (exact match only)
-    :type oidc_claim_sub: str
+def people_whoami_get():  # noqa: E501
+    """
+    Self details by OIDC Claim sub contained in token# noqa: E501
     :rtype: PeopleLong
     """
-    oidc_claim_sub = str(oidc_claim_sub).strip()
-    #if not utils.validate_oidc_claim(request.headers, oidc_claim_sub):
-    #    return "OIDC Claim Sub doesnt match", 401, \
-    #           {'X-Error': 'Authorization information is missing or invalid'}
-
     # trust the token, get claim sub from it
     oidc_claim_sub = utils.extract_oidc_claim(request.headers)
     if oidc_claim_sub is None:

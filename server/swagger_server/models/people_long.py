@@ -15,7 +15,7 @@ class PeopleLong(Model):
 
     Do not edit the class manually.
     """
-    def __init__(self, uuid: str=None, name: str=None, email: str=None, eppn: str=None, prefs: Preferences=None):  # noqa: E501
+    def __init__(self, uuid: str=None, name: str=None, email: str=None, eppn: str=None, oidc_claim_sub: str=None, prefs: Preferences=None):  # noqa: E501
         """PeopleLong - a model defined in Swagger
 
         :param uuid: The uuid of this PeopleLong.  # noqa: E501
@@ -26,6 +26,8 @@ class PeopleLong(Model):
         :type email: str
         :param eppn: The eppn of this PeopleLong.  # noqa: E501
         :type eppn: str
+        :param oidc_claim_sub: The oidc_claim_sub of this PeopleLong.  # noqa: E501
+        :type oidc_claim_sub: str
         :param prefs: The prefs of this PeopleLong.  # noqa: E501
         :type prefs: Preferences
         """
@@ -34,6 +36,7 @@ class PeopleLong(Model):
             'name': str,
             'email': str,
             'eppn': str,
+            'oidc_claim_sub': str,
             'prefs': Preferences
         }
 
@@ -42,12 +45,14 @@ class PeopleLong(Model):
             'name': 'name',
             'email': 'email',
             'eppn': 'eppn',
+            'oidc_claim_sub': 'oidc_claim_sub',
             'prefs': 'prefs'
         }
         self._uuid = uuid
         self._name = name
         self._email = email
         self._eppn = eppn
+        self._oidc_claim_sub = oidc_claim_sub
         self._prefs = prefs
 
     @classmethod
@@ -144,6 +149,27 @@ class PeopleLong(Model):
         """
 
         self._eppn = eppn
+
+    @property
+    def oidc_claim_sub(self) -> str:
+        """Gets the oidc_claim_sub of this PeopleLong.
+
+
+        :return: The oidc_claim_sub of this PeopleLong.
+        :rtype: str
+        """
+        return self._oidc_claim_sub
+
+    @oidc_claim_sub.setter
+    def oidc_claim_sub(self, oidc_claim_sub: str):
+        """Sets the oidc_claim_sub of this PeopleLong.
+
+
+        :param oidc_claim_sub: The oidc_claim_sub of this PeopleLong.
+        :type oidc_claim_sub: str
+        """
+
+        self._oidc_claim_sub = oidc_claim_sub
 
     @property
     def prefs(self) -> Preferences:

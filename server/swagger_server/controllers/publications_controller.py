@@ -1,9 +1,6 @@
 import connexion
 import six
 
-from swagger_server.models.author_id import AuthorId  # noqa: E501
-from swagger_server.models.author_id_type import AuthorIdType  # noqa: E501
-from swagger_server import util
 import swagger_server.response_code.publications_controller as pc
 
 

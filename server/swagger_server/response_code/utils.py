@@ -252,6 +252,7 @@ def fill_people_long_from_person(person):
     response.uuid = person.uuid
     response.name = person.name
     response.email = person.email
+    response.oidc_claim_sub = person.oidc_claim_sub
     if person.eppn != 'None':
         response.eppn = person.eppn
     else:
@@ -272,6 +273,7 @@ def fill_people_short_from_person(person):
     ps.email = person.email
     ps.name = person.name
     ps.uuid = person.uuid
+    ps.oidc_claim_sub = person.oidc_claim_sub
     if person.eppn != 'None':
         ps.eppn = person.eppn
     else:

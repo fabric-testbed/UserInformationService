@@ -26,19 +26,6 @@ class TestPeopleController(BaseTestCase):
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
 
-    def test_people_oidc_claim_sub_get(self):
-        """Test case for people_oidc_claim_sub_get
-
-        person details by OIDC Claim sub (open only to self)
-        """
-        query_string = [('oidc_claim_sub', 'oidc_claim_sub_example')]
-        response = self.client.open(
-            '//people/oidc_claim_sub',
-            method='GET',
-            query_string=query_string)
-        self.assert200(response,
-                       'Response body is : ' + response.data.decode('utf-8'))
-
     def test_people_uuid_get(self):
         """Test case for people_uuid_get
 
@@ -46,6 +33,17 @@ class TestPeopleController(BaseTestCase):
         """
         response = self.client.open(
             '//people/{uuid}'.format(uuid='uuid_example'),
+            method='GET')
+        self.assert200(response,
+                       'Response body is : ' + response.data.decode('utf-8'))
+
+    def test_people_whoami_get(self):
+        """Test case for people_whoami_get
+
+        Details about self from OIDC Claim sub provided in ID token (open only to self)
+        """
+        response = self.client.open(
+            '//people/whoami',
             method='GET')
         self.assert200(response,
                        'Response body is : ' + response.data.decode('utf-8'))
