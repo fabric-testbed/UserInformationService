@@ -146,13 +146,9 @@ def uuid_oidc_claim_sub_get(oidc_claim_sub):
     get the UUID mapped to this claim sub (open to any valid user)
     """
     oidc_claim_sub = str(oidc_claim_sub).strip()
-    #if not utils.validate_person(request.headers):
-    #    return "Not a valid FABRIC person", 401, \
-    #           {'X-Error': 'Authorization information is missing or invalid'}
-    oidc_claim_sub = utils.extract_oidc_claim(request.headers)
-    if oidc_claim_sub is None:
-        return 'No OIDC Claim Sub found or ID token missing', 404, \
-               {'X-Error': 'UUID Not Found'}
+    if not utils.validate_person(request.headers):
+        return "Not a valid FABRIC person", 401, \
+               {'X-Error': 'Authorization information is missing or invalid'}
 
     session = Session()
     query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
