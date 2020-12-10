@@ -149,7 +149,7 @@ def uuid_oidc_claim_sub_get(oidc_claim_sub):
     #if not utils.validate_person(request.headers):
     #    return "Not a valid FABRIC person", 401, \
     #           {'X-Error': 'Authorization information is missing or invalid'}
-    oidc_claim_sub = utils.extract_oidc_claim(request.header)
+    oidc_claim_sub = utils.extract_oidc_claim(request.headers)
     if oidc_claim_sub is None:
         return 'No OIDC Claim Sub found or ID token missing', 404, \
                {'X-Error': 'UUID Not Found'}
