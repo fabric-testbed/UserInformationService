@@ -30,11 +30,13 @@ import json
 import jwt
 import datetime
 
+from fss_utils.jwt_validate import ValidateCode
 from swagger_server.models import Preferences, PeopleShort
 from swagger_server.models.people_long import PeopleLong
 from swagger_server.database import Session
 from swagger_server.database.models import FabricPerson, InsertOutcome, insert_unique_person
 from swagger_server import SKIP_CILOGON_VALIDATION, log
+from swagger_server import jwt_validator
 
 
 """
@@ -105,7 +107,16 @@ def validate_uuid_by_oidc_claim(headers, puuid):
         log.info("ID token absent")
         return False
 
-    # FIXME: should we turn verify on?
+    # validate the token
+    if jwt_validator is not None:
+        log.info("Validating CI Logon token")
+        code, e = jwt_validator.validate_jwt(id_token)
+        if code is not ValidateCode.VALID:
+            log.error(f"Unable to validate provided token: {code}/{e}")
+            return False
+    else:
+        log.warning("JWT Token validator not initialized, skipping validation")
+
     decoded = jwt.decode(id_token, verify=False)
     oidc_claim_sub = decoded.get(SUB_CLAIM)
 
@@ -149,7 +160,16 @@ def validate_oidc_claim(headers, oidc_claim_sub):
         log.info("ID token absent")
         return False
 
-    # FIXME: should we turn verify on?
+    # validate the token
+    if jwt_validator is not None:
+        log.info("Validating CI Logon token")
+        code, e = jwt_validator.validate_jwt(id_token)
+        if code is not ValidateCode.VALID:
+            log.error(f"Unable to validate provided token: {code}/{e}")
+            return False
+    else:
+        log.warning("JWT Token validator not initialized, skipping validation")
+
     decoded = jwt.decode(id_token, verify=False)
     header_sub = decoded.get(SUB_CLAIM)
 
@@ -169,7 +189,16 @@ def extract_oidc_claim(headers):
         log.info("ID token absent")
         return None
 
-    # FIXME: should we turn verify on?
+    # validate the token
+    if jwt_validator is not None:
+        log.info("Validating CI Logon token")
+        code, e = jwt_validator.validate_jwt(id_token)
+        if code is not ValidateCode.VALID:
+            log.error(f"Unable to validate provided token: {code}/{e}")
+            return None
+    else:
+        log.warning("JWT Token validator not initialized, skipping validation")
+
     decoded = jwt.decode(id_token, verify=False)
     header_sub = decoded.get(SUB_CLAIM)
 
@@ -193,7 +222,7 @@ def validate_person(headers):
     return True
 
 
-def create_new_fabric_person(headers, check_unique=False):
+def create_new_fabric_person_from_token(headers, check_unique=False):
     """
     Extract info from identity token and create a FabricPerson entry for this person,
     including a new UUID. Return a PeopleLong based on that info.
@@ -202,7 +231,7 @@ def create_new_fabric_person(headers, check_unique=False):
     :return ps: a PeopleLong entry for the new user or None on error
     """
     id_token = headers.get(ID_TOKEN_NAME)
-    # FIXME: should we turn verify on?
+    # token should be validated by now
     decoded = jwt.decode(id_token, verify=False)
 
     session = Session()
