@@ -74,6 +74,7 @@ def people_get(person_name=None):  # noqa: E501
 def people_whoami_get():  # noqa: E501
     """
     Self details by OIDC Claim sub contained in token# noqa: E501
+    If a person doesn't exist, it gets created.
     :rtype: PeopleLong
     """
     # trust the token, get claim sub from it
