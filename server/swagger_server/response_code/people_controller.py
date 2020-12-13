@@ -92,7 +92,7 @@ def people_whoami_get():  # noqa: E501
         if len(query_result) == 0:
             # create a new FabricPerson in db, fill in information from the claim sub
             # and returns a PeopleLong (don't check uniqueness - we just did)
-            pl = utils.create_new_fabric_person(request.headers)
+            pl = utils.create_new_fabric_person_from_token(request.headers)
             return pl
         else:
             if len(query_result) > 1:
