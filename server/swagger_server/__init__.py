@@ -52,12 +52,11 @@ log.info(f'Using a search character limit of {QUERY_CHARACTER_MIN} for /people q
 # initialize CI Logon Token Validation
 if not SKIP_CILOGON_VALIDATION:
     CILOGON_CERTS = app_params.get("cilogon_certs")
-    CILOGON_AUD = app_params.get("cilogon_audience")
     CILOGON_KEY_REFRESH = app_params.get("cilogon_key_refresh")
-    log.info(f'Initializing JWT Validator to use {CILOGON_CERTS} endpoint, {CILOGON_AUD} audience, '
+    log.info(f'Initializing JWT Validator to use {CILOGON_CERTS} endpoint, '
              f'refreshing keys every {CILOGON_KEY_REFRESH} HH:MM:SS')
     t = datetime.datetime.strptime(CILOGON_KEY_REFRESH, "%H:%M:%S")
-    jwt_validator = JWTValidator(CILOGON_CERTS, CILOGON_AUD,
+    jwt_validator = JWTValidator(CILOGON_CERTS,
                                  datetime.timedelta(hours=t.hour,
                                                     minutes=t.minute,
                                                     seconds=t.second))
