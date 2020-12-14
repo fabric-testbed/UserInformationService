@@ -19,7 +19,6 @@ LDAP_SEARCH_BASE=searchbase
 
 # Token validation parameters
 UIS_CILOGON_CERTS="https://cilogon.org/oauth2/certs"
-UIS_CILOGON_AUDIENCE="cilogon:/client_id/1234567890"
 # Uses HH:MM:SS (less than 24 hours)
 UIS_CILOGON_KEY_REFRESH="00:10:00"
 
