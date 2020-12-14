@@ -49,8 +49,8 @@ services:
     image: library/nginx:1
     container_name: uis-nginx
     ports:
-      - 80:80
-      - 443:443
+      - 8080:80
+      - 8443:443
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
       - ./ssl:/etc/ssl
@@ -65,7 +65,3 @@ services:
       - ./vouch:/config
     restart: unless-stopped
 
-#networks:
-#  frontend:
-#  backend:
-#    internal: true
