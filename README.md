@@ -1,3 +1,5 @@
+[![Requirements Status](https://requires.io/github/fabric-testbed/UserInformationService/requirements.svg?branch=oidc-claim-sub-no-param)](https://requires.io/github/fabric-testbed/UserInformationService/requirements/?branch=oidc-claim-sub-no-param)
+
 # User Information Service (UIS)
 
 Python (Flask) RESTful API service for managing FABRIC user information.
