@@ -30,7 +30,7 @@ import json
 import jwt
 import datetime
 
-from fss_utils.jwt_validate import ValidateCode
+from fss_utils.jwt_manager import ValidateCode
 from swagger_server.models import Preferences, PeopleShort
 from swagger_server.models.people_long import PeopleLong
 from swagger_server.database import Session
@@ -110,7 +110,7 @@ def validate_uuid_by_oidc_claim(headers, puuid):
     # validate the token
     if jwt_validator is not None:
         log.info("Validating CI Logon token")
-        code, e = jwt_validator.validate_jwt(id_token)
+        code, e = jwt_validator.validate_jwt(token=id_token)
         if code is not ValidateCode.VALID:
             log.error(f"Unable to validate provided token: {code}/{e}")
             return False
@@ -163,7 +163,7 @@ def validate_oidc_claim(headers, oidc_claim_sub):
     # validate the token
     if jwt_validator is not None:
         log.info("Validating CI Logon token")
-        code, e = jwt_validator.validate_jwt(id_token)
+        code, e = jwt_validator.validate_jwt(token=id_token)
         if code is not ValidateCode.VALID:
             log.error(f"Unable to validate provided token: {code}/{e}")
             return False
@@ -190,16 +190,17 @@ def extract_oidc_claim(headers):
         return None
 
     # validate the token
+    decoded = None
     if jwt_validator is not None:
         log.info("Validating CI Logon token")
-        code, e = jwt_validator.validate_jwt(id_token)
+        code, decoded = jwt_validator.validate_jwt(token=id_token)
         if code is not ValidateCode.VALID:
-            log.error(f"Unable to validate provided token: {code}/{e}")
+            log.error(f"Unable to validate provided token: {code}/{decoded}")
             return None
     else:
         log.warning("JWT Token validator not initialized, skipping validation")
+        decoded = jwt.decode(id_token, verify=False)
 
-    decoded = jwt.decode(id_token, verify=False)
     header_sub = decoded.get(SUB_CLAIM)
 
     log.info(f"Extracted sub from token: {header_sub}")

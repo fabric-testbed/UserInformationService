@@ -56,10 +56,10 @@ if not SKIP_CILOGON_VALIDATION:
     log.info(f'Initializing JWT Validator to use {CILOGON_CERTS} endpoint, '
              f'refreshing keys every {CILOGON_KEY_REFRESH} HH:MM:SS')
     t = datetime.datetime.strptime(CILOGON_KEY_REFRESH, "%H:%M:%S")
-    jwt_validator = JWTValidator(CILOGON_CERTS,
-                                 datetime.timedelta(hours=t.hour,
-                                                    minutes=t.minute,
-                                                    seconds=t.second))
+    jwt_validator = JWTValidator(url=CILOGON_CERTS,
+                                 refresh_period=datetime.timedelta(hours=t.hour,
+                                                                   minutes=t.minute,
+                                                                   seconds=t.second))
 else:
     jwt_validator = None
 
