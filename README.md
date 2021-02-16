@@ -54,6 +54,38 @@ Preferences:
 Uses postgres. Schema is defined via ORM under
 [server/swagger_server/database/models.py](server/swagger_server/database/models.py)
 
+To connect to the database directly, login to the postgres container:
+```bash
+$ docker exec -ti uis-database bash
+#/ postgres -U postgres -W
+postgres-# \dt 
+             List of relations
+ Schema |      Name      | Type  |  Owner   
+--------+----------------+-------+----------
+ public | author_ids     | table | postgres
+ public | fabric_papers  | table | postgres
+ public | fabric_people  | table | postgres
+ public | papers_authors | table | postgres
+ public | portal_keys    | table | postgres
+ public | user_keys      | table | postgres
+ public | version        | table | postgres
+postgres-# 
+```
+
+Read the COmanage section and other sections regarding impact of manipulataing the database by hand.
+# COmanage and User Management
+
+UIS talks to COmanage via its REST API to determine if users are active. One important
+caveat is if a user originally enrolls, then gets expunged from COmanage - they do not 
+automatically get removed from UIS db (although they no longer are not considered) active.
+However if they do re-enroll, they get a new internal ID in COmanage that no longer matches
+what is in UIS database. In this case operator must manually remove user from UIS database.
+After that the user can login to Portal (via UIS) successfully - a new entry will be created
+but their preferences are lost.
+
+Alternatively if the new co_person_id is known, UIS database `co_person_id` column can
+be updated with the new value for the re-enrolled user.
+ 
 # Testing
 
 Setup your env_template. Then run `docker-compose -f <compose file> --env-file <env file> up`.

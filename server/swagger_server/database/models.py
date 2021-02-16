@@ -80,6 +80,8 @@ class FabricPerson(Base):
     name = Column(String)
     email = Column(String)
     eppn = Column(String)
+    # store comanage ID here
+    co_person_id = Column(String)
     # preferences
     settings = Column(JSONB)
     permissions = Column(JSONB)
@@ -170,7 +172,17 @@ def insert_unique_person(person: FabricPerson, session) -> InsertOutcome:
 
     query_result = query.all()
 
-    if len(query_result) != 0:
+    if len(query_result) == 1:
+        # entry exists
+        # compare name, email and eppn and update
+        update_attributes = ['name', 'email', 'eppn']
+        dbperson = query_result[0]
+        for attr in update_attributes:
+            if getattr(dbperson, attr) != getattr(person, attr):
+                setattr(dbperson, attr, getattr(person, attr))
+        # commit should be called later
+        return InsertOutcome.DUPLICATE_FOUND
+    if len(query_result) > 1:
         return InsertOutcome.DUPLICATE_FOUND
 
     session.add(person)

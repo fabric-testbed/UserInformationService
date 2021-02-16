@@ -113,21 +113,12 @@ paths:
           description: People not found
         "5XX":
           description: Unexpected error
-  /people/oidc_claim_sub:
+  /people/whoami:
     get:
       tags:
       - people
-      summary: person details by OIDC Claim sub (open only to self)
-      description: Person details by OIDC Claim sub
-      parameters:
-      - name: oidc_claim_sub
-        in: query
-        description: Search People by OIDC Claim sub (exact match only)
-        required: true
-        style: form
-        explode: true
-        schema:
-          type: string
+      summary: Details about self from OIDC Claim sub provided in ID token (open only to self)
+      description: Details about self based on key OIDC Claim sub contained in ID token
       responses:
         "200":
           description: OK
@@ -411,6 +402,8 @@ components:
           type: string
         eppn:
           type: string
+        oidc_claim_sub:
+          type: string
     People_long:
       properties:
         uuid:
@@ -420,6 +413,8 @@ components:
         email:
           type: string
         eppn:
+          type: string
+        oidc_claim_sub:
           type: string
         prefs:
           $ref: '#/components/schemas/Preferences'

@@ -105,7 +105,6 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E5
 
         person = query_result[0]
 
-        print(f"SETTING PREFERENCE {preftype} of user {uuid} to {preferences} as {json.dumps(preferences)}")
         setattr(person, preftype, json.dumps(preferences))
 
         session.commit()

@@ -23,18 +23,24 @@
 #
 #
 # Author: Ilya Baldin (ibaldin@renci.org) Michael Stealey (stealey@renci.org)
+from typing import Tuple, Any, List
 
 import psycopg2
 import uuid
 import json
 import jwt
 import datetime
+import requests
+from requests.auth import HTTPBasicAuth
 
+from fss_utils.jwt_manager import ValidateCode
 from swagger_server.models import Preferences, PeopleShort
 from swagger_server.models.people_long import PeopleLong
 from swagger_server.database import Session
 from swagger_server.database.models import FabricPerson, InsertOutcome, insert_unique_person
-from swagger_server import SKIP_CILOGON_VALIDATION, log
+from swagger_server import SKIP_CILOGON_VALIDATION, COAPI_KEY, COAPI_USER, COID, \
+    CO_REGISTRY_URL, CO_ACTIVE_USERS_COU, log
+from swagger_server import jwt_validator
 
 
 """
@@ -105,7 +111,16 @@ def validate_uuid_by_oidc_claim(headers, puuid):
         log.info("ID token absent")
         return False
 
-    # FIXME: should we turn verify on?
+    # validate the token
+    if jwt_validator is not None:
+        log.info("Validating CI Logon token")
+        code, e = jwt_validator.validate_jwt(token=id_token)
+        if code is not ValidateCode.VALID:
+            log.error(f"Unable to validate provided token: {code}/{e}")
+            return False
+    else:
+        log.warning("JWT Token validator not initialized, skipping validation")
+
     decoded = jwt.decode(id_token, verify=False)
     oidc_claim_sub = decoded.get(SUB_CLAIM)
 
@@ -149,7 +164,16 @@ def validate_oidc_claim(headers, oidc_claim_sub):
         log.info("ID token absent")
         return False
 
-    # FIXME: should we turn verify on?
+    # validate the token
+    if jwt_validator is not None:
+        log.info("Validating CI Logon token")
+        code, e = jwt_validator.validate_jwt(token=id_token)
+        if code is not ValidateCode.VALID:
+            log.error(f"Unable to validate provided token: {code}/{e}")
+            return False
+    else:
+        log.warning("JWT Token validator not initialized, skipping validation")
+
     decoded = jwt.decode(id_token, verify=False)
     header_sub = decoded.get(SUB_CLAIM)
 
@@ -157,23 +181,37 @@ def validate_oidc_claim(headers, oidc_claim_sub):
     return header_sub == oidc_claim_sub
 
 
-def validate_person(headers):
+def extract_oidc_claim(headers):
     """
-    Validate that this represents a valid FABRIC person based on header information.
-    Cookie or identity token can be used.
-    :param headers: request headers
+    Extract OIDC claim sub from header identity token and return it.
+    :param headers:
+    :return string:
     """
-    if SKIP_CILOGON_VALIDATION:
-        log.info("Skipping person validation")
-        return True
+
+    id_token = headers.get(ID_TOKEN_NAME)
+    if id_token is None:
+        log.info("ID token absent")
+        return None
+
+    # validate the token
+    decoded = None
+    if jwt_validator is not None:
+        log.info("Validating CI Logon token")
+        code, decoded = jwt_validator.validate_jwt(token=id_token)
+        if code is not ValidateCode.VALID:
+            log.error(f"Unable to validate provided token: {code}/{decoded}")
+            return None
     else:
-        log.info("Validating FABRIC person")
-        # TODO: need to check they are a valid user, but nothing more
-        # TODO: get stuff out of id token and or cookie
-    return True
+        log.warning("JWT Token validator not initialized, skipping validation")
+        decoded = jwt.decode(id_token, verify=False)
+
+    header_sub = decoded.get(SUB_CLAIM)
+
+    log.info(f"Extracted sub from token: {header_sub}")
+    return header_sub
 
 
-def create_new_fabric_person(headers, check_unique=False):
+def create_new_fabric_person_from_token(headers, check_unique=False):
     """
     Extract info from identity token and create a FabricPerson entry for this person,
     including a new UUID. Return a PeopleLong based on that info.
@@ -182,7 +220,7 @@ def create_new_fabric_person(headers, check_unique=False):
     :return ps: a PeopleLong entry for the new user or None on error
     """
     id_token = headers.get(ID_TOKEN_NAME)
-    # FIXME: should we turn verify on?
+    # token should be validated by now
     decoded = jwt.decode(id_token, verify=False)
 
     session = Session()
@@ -232,6 +270,7 @@ def fill_people_long_from_person(person):
     response.uuid = person.uuid
     response.name = person.name
     response.email = person.email
+    response.oidc_claim_sub = person.oidc_claim_sub
     if person.eppn != 'None':
         response.eppn = person.eppn
     else:
@@ -252,8 +291,126 @@ def fill_people_short_from_person(person):
     ps.email = person.email
     ps.name = person.name
     ps.uuid = person.uuid
+    ps.oidc_claim_sub = person.oidc_claim_sub
     if person.eppn != 'None':
         ps.eppn = person.eppn
     else:
         ps.eppn = ''
     return ps
+
+
+def comanage_list_people_matches(given: str = None, family: str = None, email: str = None) -> Tuple[int, List]:
+    """
+    Try to get a brief list of people matching one or more of these fields.
+    Returns a tuple of status code and a list of matching CoPeople entries (if any)
+    """
+    params = {'coid': str(COID)}
+    if given is not None:
+        params['given'] = given
+    if family is not None:
+        params['family'] = family
+    if email is not None:
+        params['mail'] = email
+    # don't allow to ask stupid questions
+    if len(params.keys()) == 1:
+        return 500, []
+    response = requests.get(url=CO_REGISTRY_URL + 'co_people.json',
+                            params=params,
+                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    if response.status_code == 204:
+        # we got nothing back
+        return 200, []
+    if response.status_code != 200:
+        return response.status_code, []
+    response_obj = response.json()
+    return response.status_code, response_obj['CoPeople']
+
+
+def comanage_check_person_couid(person_id, couid) -> Tuple[int, bool]:
+    """
+    Check if a given person is a member of couid. Return tuple of API status code
+    and True or False. Strings or integers accepted as parameters
+    """
+    assert person_id is not None
+    assert couid is not None
+    params = {'coid': str(COID), 'copersonid': str(person_id)}
+    response = requests.get(url=CO_REGISTRY_URL + 'co_person_roles.json',
+                            params=params, auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+
+    if response.status_code == 204:
+        # we got nothing back, just say so
+        return 200, False
+    if response.status_code != 200:
+        return response.status_code, False
+    response_obj = response.json()
+    if response_obj.get('CoPersonRoles', None) is None:
+        return 500, False
+    for role in response_obj['CoPersonRoles']:
+        if role.get('CouId', None) is not None and role['CouId'] == str(couid):
+            return response.status_code, True
+    return response.status_code, False
+
+
+def comanage_check_active_person(person) -> Tuple[int, bool or None, str or None]:
+    """
+    Try to figure out person's co_person_id from different attributes.
+    Returns COmanage status code, a boolean for whether person is active
+    and string id to store back in the database for next time.
+    """
+    # if person_id is present, skip the line
+    if person.co_person_id is not None:
+        log.debug(f'Checking person {person.oidc_claim_sub} active status by co_person_id with person id {person.co_person_id}')
+        code, active_flag = comanage_check_person_couid(person.co_person_id, CO_ACTIVE_USERS_COU)
+        return code, active_flag, None
+    # if email is present, try that first
+    people_list = []
+    person_id = None
+    email = person.email if person.email is not None else person.eppn
+    log.debug(f'Checking person {person.oidc_claim_sub} active status by searching via email {email}')
+    if email is not None:
+        # easiest if there is email
+        code, people_list = comanage_list_people_matches(email=email)
+        if code == 204:
+            # nothing found
+            return 200, False, None
+        if code != 200:
+            return code, False, None
+    else:
+        if person.name is not None:
+            name_split = person.name.split(' ')
+            fname = name_split[0]
+            if len(name_split) == 2:
+                lname = name_split[1]
+            else:
+                lname = name_split[2]
+            # try to find by fname, lname
+            log.debug(f'Checking person {person.oidc_claim_sub} active status by searching fname, lname {fname} {lname}')
+            code, people_list = comanage_list_people_matches(given=fname, family=lname)
+            if code == 204:
+                # nothing found
+                return 200, False, None
+            if code != 200:
+                return code, False, None
+    for people in people_list:
+        if people.get('ActorIdentifier', None) is not None and people['ActorIdentifier'] == person.oidc_claim_sub:
+            person_id = people.get('Id', None)
+    if person_id is None:
+        # person id not available
+        return 200, False, None
+    code, active_flag = comanage_check_person_couid(person_id, CO_ACTIVE_USERS_COU)
+    return code, active_flag, person_id
+
+
+def check_user_active(session, headers) -> Tuple[int, bool]:
+    """
+    Check the user with this oidc_claim sub is active. DB Session
+    is passed in externally. No commits required - doesn't change db.
+    """
+    oidc_claim_sub = extract_oidc_claim(headers)
+    query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
+    query_result = query.all()
+
+    person = query_result[0]
+    # check with COmanage they are an active user
+    status, active_flag, _ = comanage_check_active_person(person)
+    return status, active_flag

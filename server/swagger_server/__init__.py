@@ -1,7 +1,11 @@
 import connexion
 import os
 import logging
+import datetime
+
 from swagger_server import encoder
+
+from fss_utils.jwt_validate import ValidateCode, JWTValidator
 
 from swagger_server.database.models import metadata
 from swagger_server.database import engine
@@ -44,6 +48,31 @@ if app_params.get('search_min_char_count', None) is not None:
     else:
         log.warning(f'Search character limit of {char_min} is not valid, using default instead.')
 log.info(f'Using a search character limit of {QUERY_CHARACTER_MIN} for /people queries')
+
+# initialize CI Logon Token Validation
+if not SKIP_CILOGON_VALIDATION:
+    CILOGON_CERTS = app_params.get("cilogon_certs")
+    CILOGON_KEY_REFRESH = app_params.get("cilogon_key_refresh")
+    log.info(f'Initializing JWT Validator to use {CILOGON_CERTS} endpoint, '
+             f'refreshing keys every {CILOGON_KEY_REFRESH} HH:MM:SS')
+    t = datetime.datetime.strptime(CILOGON_KEY_REFRESH, "%H:%M:%S")
+    jwt_validator = JWTValidator(url=CILOGON_CERTS,
+                                 refresh_period=datetime.timedelta(hours=t.hour,
+                                                                   minutes=t.minute,
+                                                                   seconds=t.second))
+else:
+    jwt_validator = None
+
+# setup to query COmanage APIs
+# key and user for accessing API
+COAPI_USER = app_params.get("coapi_user")
+COAPI_KEY = app_params.get("coapi_key")
+# id of the CO we are working with
+COID = app_params.get("coid")
+# id of the group representing FABRIC active users in COmanage
+CO_ACTIVE_USERS_COU = app_params.get("co_active_users_cou")
+# registry URL
+CO_REGISTRY_URL = app_params.get("co_registry_url")
 
 # Flask initialization for uwsgi (so it can find swagger_server:app)
 app = connexion.App(__name__, specification_dir='./swagger/')
