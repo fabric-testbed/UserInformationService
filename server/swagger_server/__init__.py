@@ -63,6 +63,17 @@ if not SKIP_CILOGON_VALIDATION:
 else:
     jwt_validator = None
 
+# setup to query COmanage APIs
+# key and user for accessing API
+COAPI_USER = app_params.get("coapi_user")
+COAPI_KEY = app_params.get("coapi_key")
+# id of the CO we are working with
+COID = app_params.get("coid")
+# id of the group representing FABRIC active users in COmanage
+CO_ACTIVE_USERS_COU = app_params.get("co_active_users_cou")
+# registry URL
+CO_REGISTRY_URL = app_params.get("co_registry_url")
+
 # Flask initialization for uwsgi (so it can find swagger_server:app)
 app = connexion.App(__name__, specification_dir='./swagger/')
 app.app.json_encoder = encoder.JSONEncoder

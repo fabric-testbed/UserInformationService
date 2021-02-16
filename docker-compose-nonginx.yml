@@ -21,6 +21,11 @@ services:
       - UIS_USER_DATA=${UIS_USER_DATA:-none}
       - UIS_SKIP_CILOGON_VALIDATION=${UIS_SKIP_CILOGON_VALIDATION:-false}
       - UIS_SEARCH_MIN_CHAR_COUNT=${UIS_SEARCH_MIN_CHAR_COUNT:-3}
+      - UIS_COAPI_USER=${UIS_COAPI_USER:-apiuser}
+      - UIS_COAPI_KEY=${UIS_COAPI_KEY:-apikey}
+      - UIS_COID=${UIS_COID:-11}
+      - UIS_CO_ACTIVE_USERS_COU=${UIS_CO_ACTIVE_USERS_COU:-111}
+      - UIS_CO_REGISTRY_URL=${UIS_CO_REGISTRY_URL:-"https://registry-test.cilogon.org/registry/"}
     ports:
       - 5000:5000
     networks:

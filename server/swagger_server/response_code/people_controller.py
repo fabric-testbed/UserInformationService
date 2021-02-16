@@ -81,7 +81,7 @@ def people_whoami_get():  # noqa: E501
     oidc_claim_sub = utils.extract_oidc_claim(request.headers)
     if oidc_claim_sub is None:
         return 'No OIDC Claim Sub found or ID token missing', 404, \
-               {'X-Error': 'UUID Not Found'}
+               {'X-Error': 'OIDC Claim Not Found'}
 
     session = Session()
     try:
@@ -91,15 +91,33 @@ def people_whoami_get():  # noqa: E501
 
         if len(query_result) == 0:
             # create a new FabricPerson in db, fill in information from the claim sub
-            # and returns a PeopleLong (don't check uniqueness - we just did)
-            pl = utils.create_new_fabric_person_from_token(request.headers)
-            return pl
+            utils.create_new_fabric_person_from_token(request.headers)
+            # re-query after insertion
+            query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
+            query_result = query.all()
+            if len(query_result) != 1:
+                return 'Insertion in UIS database failed', 500, \
+                       {'X-Error': 'Internal server error'}
         else:
             if len(query_result) > 1:
                 return 'Duplicate OIDC Claim Found: {0}'.format(str(oidc_claim_sub)), 500, \
                        {'X-Error': 'Duplicate person found'}
 
         person = query_result[0]
+        # check with COmanage they are an active user
+        status, active_flag, co_person_id = utils.comanage_check_active_person(person)
+        if status != 200:
+            return f'Error {status} contacting COmanage', 500, \
+                       {'X-Error': 'COmanage problem'}
+        if co_person_id is not None:
+            # write Id to the database if we got it
+            setattr(person, 'co_person_id', co_person_id)
+            session.commit()
+
+        if not active_flag:
+            return 'User not an active user', 401, \
+                   {'X-Error': 'Unauthorized'}
+
         return utils.fill_people_long_from_person(person)
     finally:
         session.close()

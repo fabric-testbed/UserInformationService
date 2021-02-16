@@ -1,5 +1,16 @@
 version: '3.8'
 services:
+  nginx:
+    image: library/nginx:1
+    container_name: api-nginx
+    ports:
+      - 8080:80
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+    networks:
+      - frontend
+    restart: on-failure
+
   server:
     build:
       context: ./
@@ -7,6 +18,7 @@ services:
     container_name: api-server
     depends_on:
       - database
+      - nginx
     environment:
       - POSTGRES_HOST=${POSTGRES_HOST:-api-db}
       - POSTGRES_PORT=5432
@@ -14,7 +26,18 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-uiservice}
       - SWAGGER_HOST=${SWAGGER_HOST:-127.0.0.1:5000}
-      - UISERVICE_MOCK=${UISERVICE_MOCK:-false}
+      - LDAP_HOST=${LDAP_HOST:-localhost}
+      - LDAP_USER=${LDAP_USER:-ldapuser}
+      - LDAP_PASSWORD=${LDAP_PASSWORD:-ldappass}
+      - LDAP_SEARCH_BASE=${LDAP_SEARCH_BASE:-ldapbase}
+      - UIS_USER_DATA=${UIS_USER_DATA:-none}
+      - UIS_SKIP_CILOGON_VALIDATION=${UIS_SKIP_CILOGON_VALIDATION:-false}
+      - UIS_SEARCH_MIN_CHAR_COUNT=${UIS_SEARCH_MIN_CHAR_COUNT:-3}
+      - UIS_COAPI_USER=${UIS_COAPI_USER:-apiuser}
+      - UIS_COAPI_KEY=${UIS_COAPI_KEY:-apikey}
+      - UIS_COID=${UIS_COID:-11}
+      - UIS_CO_ACTIVE_USERS_COU=${UIS_CO_ACTIVE_USERS_COU:-111}
+      - UIS_CO_REGISTRY_URL=${UIS_CO_REGISTRY_URL:-"https://registry-test.cilogon.org/registry/"}
     ports:
       - 5000:5000
     networks:

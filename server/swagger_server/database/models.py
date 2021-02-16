@@ -80,6 +80,8 @@ class FabricPerson(Base):
     name = Column(String)
     email = Column(String)
     eppn = Column(String)
+    # store comanage ID here
+    co_person_id = Column(String)
     # preferences
     settings = Column(JSONB)
     permissions = Column(JSONB)
