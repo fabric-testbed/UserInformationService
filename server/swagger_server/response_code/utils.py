@@ -375,14 +375,14 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, str or None
     """
     # if person_id is present, skip the line
     if person.co_person_id is not None:
-        log.info(f'Checking person {person.oidc_claim_sub} active status by co_person_id with person id {person.co_person_id}')
+        log.debug(f'Checking person {person.oidc_claim_sub} active status by co_person_id with person id {person.co_person_id}')
         code, active_flag = comanage_check_person_couid(person.co_person_id, CO_ACTIVE_USERS_COU)
         return code, active_flag, None
     # if email is present, try that first
     people_list = []
     person_id = None
     email = person.email if person.email is not None else person.eppn
-    log.info(f'Checking person {person.oidc_claim_sub} active status by searching via email {email}')
+    log.debug(f'Checking person {person.oidc_claim_sub} active status by searching via email {email}')
     if email is not None:
         # easiest if there is email
         code, people_list = comanage_list_people_matches(email=email)
