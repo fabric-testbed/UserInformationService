@@ -41,9 +41,6 @@ def people_get(person_name=None):  # noqa: E501
     :rtype: List[PeopleShort]
     """
     person_name = str(person_name).strip()
-    if not utils.validate_person(request.headers):
-        return "Not a valid FABRIC person", 401, \
-               {'X-Error': 'Authorization information is missing or invalid'}
 
     # can't let them query by fewer than 5 characters
     if not person_name or len(person_name) < QUERY_CHARACTER_MIN:
@@ -52,6 +49,13 @@ def people_get(person_name=None):  # noqa: E501
 
     session = Session()
     try:
+        status, active_flag = utils.check_user_active(session, request.headers)
+        if status != 200:
+            return f'Error {status} contacting COmanage', 500, \
+                   {'X-Error': 'COmanage problem'}
+        if not active_flag:
+            return 'User not an active user', 401, \
+                   {'X-Error': 'Unauthorized'}
         query = session.query(FabricPerson).\
             filter(FabricPerson.name.ilike("%{}%".format(str(person_name))))
 
@@ -158,11 +162,16 @@ def uuid_oidc_claim_sub_get(oidc_claim_sub):
     get the UUID mapped to this claim sub (open to any valid user)
     """
     oidc_claim_sub = str(oidc_claim_sub).strip()
-    if not utils.validate_person(request.headers):
-        return "Not a valid FABRIC person", 401, \
-               {'X-Error': 'Authorization information is missing or invalid'}
 
     session = Session()
+    status, active_flag = utils.check_user_active(session, request.headers)
+    if status != 200:
+        return f'Error {status} contacting COmanage', 500, \
+               {'X-Error': 'COmanage problem'}
+    if not active_flag:
+        return 'User not an active user', 401, \
+               {'X-Error': 'Unauthorized'}
+
     query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
     query_result = query.all()
 

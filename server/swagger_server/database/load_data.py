@@ -208,7 +208,8 @@ def load_people_data(flag):
         dbperson.alt_ids = alt_ids
         ret = insert_unique_person(dbperson, session)
         if ret != InsertOutcome.OK:
-            print(f"Unable to add entry for {dbperson.oidc_claim_sub} due to {ret}")
+            print(f"Unable to add entry for {dbperson.oidc_claim_sub} due to {ret}. "
+                  f"For a pre-existing entry, some fields (name, email, eppn) may have been updated")
     session.commit()
 
 

@@ -211,22 +211,6 @@ def extract_oidc_claim(headers):
     return header_sub
 
 
-def validate_person(headers):
-    """
-    Validate that this represents a valid FABRIC person based on header information.
-    Cookie or identity token can be used.
-    :param headers: request headers
-    """
-    if SKIP_CILOGON_VALIDATION:
-        log.info("Skipping person validation")
-        return True
-    else:
-        log.info("Validating FABRIC person")
-        # TODO: need to check they are a valid user, but nothing more
-        # TODO: get stuff out of id token and or cookie
-    return True
-
-
 def create_new_fabric_person_from_token(headers, check_unique=False):
     """
     Extract info from identity token and create a FabricPerson entry for this person,
@@ -415,3 +399,18 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, str or None
         return 200, False, None
     code, active_flag = comanage_check_person_couid(person_id, CO_ACTIVE_USERS_COU)
     return code, active_flag, person_id
+
+
+def check_user_active(session, headers) -> Tuple[int, bool]:
+    """
+    Check the user with this oidc_claim sub is active. DB Session
+    is passed in externally. No commits required - doesn't change db.
+    """
+    oidc_claim_sub = extract_oidc_claim(headers)
+    query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
+    query_result = query.all()
+
+    person = query_result[0]
+    # check with COmanage they are an active user
+    status, active_flag, _ = comanage_check_active_person(person)
+    return status, active_flag
