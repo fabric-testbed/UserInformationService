@@ -314,9 +314,14 @@ def comanage_list_people_matches(given: str = None, family: str = None, email: s
     # don't allow to ask stupid questions
     if len(params.keys()) == 1:
         return 500, []
-    response = requests.get(url=CO_REGISTRY_URL + 'co_people.json',
-                            params=params,
-                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    try:
+        response = requests.get(url=CO_REGISTRY_URL + 'co_people.json',
+                                params=params,
+                                auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    except requests.exceptions.RequestException as e:
+        log.debug(f"COmanage request exception {e} encountered, returning status 500")
+        return 500, []
+
     if response.status_code == 204:
         # we got nothing back
         return 200, []
@@ -334,8 +339,12 @@ def comanage_check_person_couid(person_id, couid) -> Tuple[int, bool]:
     assert person_id is not None
     assert couid is not None
     params = {'coid': str(COID), 'copersonid': str(person_id)}
-    response = requests.get(url=CO_REGISTRY_URL + 'co_person_roles.json',
-                            params=params, auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    try:
+        response = requests.get(url=CO_REGISTRY_URL + 'co_person_roles.json',
+                                params=params, auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    except requests.exceptions.RequestException as e:
+        log.debug(f"COmanage request exception {e} encountered, returning status 500")
+        return 500, False
 
     if response.status_code == 204:
         # we got nothing back, just say so
