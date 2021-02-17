@@ -319,7 +319,8 @@ def comanage_list_people_matches(given: str = None, family: str = None, email: s
                                 params=params,
                                 auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
     except requests.exceptions.RequestException as e:
-        log.debug(f"COmanage request exception {e} encountered, returning status 500")
+        log.debug(f"COmanage request exception {e} encountered in co_people.json, "
+                  f"returning status 500")
         return 500, []
 
     if response.status_code == 204:
@@ -343,7 +344,8 @@ def comanage_check_person_couid(person_id, couid) -> Tuple[int, bool]:
         response = requests.get(url=CO_REGISTRY_URL + 'co_person_roles.json',
                                 params=params, auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
     except requests.exceptions.RequestException as e:
-        log.debug(f"COmanage request exception {e} encountered, returning status 500")
+        log.debug(f"COmanage request exception {e} encountered in co_person_roles.json, "
+                  f"returning status 500")
         return 500, False
 
     if response.status_code == 204:
