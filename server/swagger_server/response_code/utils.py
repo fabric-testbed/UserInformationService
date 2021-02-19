@@ -28,6 +28,7 @@ from typing import Tuple, Any, List
 import psycopg2
 import uuid
 import json
+import re
 import jwt
 import datetime
 import requests
@@ -314,9 +315,15 @@ def comanage_list_people_matches(given: str = None, family: str = None, email: s
     # don't allow to ask stupid questions
     if len(params.keys()) == 1:
         return 500, []
-    response = requests.get(url=CO_REGISTRY_URL + 'co_people.json',
-                            params=params,
-                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    try:
+        response = requests.get(url=CO_REGISTRY_URL + 'co_people.json',
+                                params=params,
+                                auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    except requests.exceptions.RequestException as e:
+        log.debug(f"COmanage request exception {e} encountered in co_people.json, "
+                  f"returning status 500")
+        return 500, []
+
     if response.status_code == 204:
         # we got nothing back
         return 200, []
@@ -334,8 +341,13 @@ def comanage_check_person_couid(person_id, couid) -> Tuple[int, bool]:
     assert person_id is not None
     assert couid is not None
     params = {'coid': str(COID), 'copersonid': str(person_id)}
-    response = requests.get(url=CO_REGISTRY_URL + 'co_person_roles.json',
-                            params=params, auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    try:
+        response = requests.get(url=CO_REGISTRY_URL + 'co_person_roles.json',
+                                params=params, auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    except requests.exceptions.RequestException as e:
+        log.debug(f"COmanage request exception {e} encountered in co_person_roles.json, "
+                  f"returning status 500")
+        return 500, False
 
     if response.status_code == 204:
         # we got nothing back, just say so
@@ -399,6 +411,37 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, str or None
         return 200, False, None
     code, active_flag = comanage_check_person_couid(person_id, CO_ACTIVE_USERS_COU)
     return code, active_flag, person_id
+
+
+def comanage_get_person_name(co_person_id) -> Tuple[int, str or None]:
+    """
+    Sometimes CILogon doesn't give us a person name initially, but
+    it should be there after enrollment in COmanage.
+    We provide co_person_id externally as it may or may not
+    be already stored on the person.
+    :return: tuple of comanage return code and name if any
+    """
+    assert co_person_id is not None
+    params = {'copersonid': co_person_id}
+    response = requests.get(url=CO_REGISTRY_URL + 'names.json',
+                            params=params,
+                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    if response.status_code == 204:
+        # we got nothing back, just say so
+        return 200, None
+    if response.status_code != 200:
+        return response.status_code, None
+    response_obj = response.json()
+    names_list = response_obj.get('Names', None)
+    if names_list is None or len(names_list) == 0:
+        return 200, None
+    # use the first name entry
+    names = names_list[0]
+    name = "".join([names['Given'], ' ', names['Middle'], ' ',
+                    names['Family'], ' ', names['Suffix']])
+    # strip extra spaces
+    name = re.sub(' +', ' ', name)
+    return 200, name[:-1]
 
 
 def check_user_active(session, headers) -> Tuple[int, bool]:

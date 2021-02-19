@@ -28,6 +28,12 @@ load_version_data()
 APP_PARAM_PREFIX = "UIS"
 app_params = config_from_env(APP_PARAM_PREFIX)
 
+# query limit
+QUERY_LIMIT = 20
+if app_params.get('query_limit', None) is not None:
+    QUERY_LIMIT = int(app_params.get('query_limit'))
+log.info(f'Using a search limit of {QUERY_LIMIT} entries for /people queries')
+
 SKIP_CILOGON_VALIDATION = True
 if app_params.get('skip_cilogon_validation', None) == 'false':
     SKIP_CILOGON_VALIDATION = False
