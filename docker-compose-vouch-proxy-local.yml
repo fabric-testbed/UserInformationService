@@ -71,7 +71,7 @@ services:
     restart: on-failure
 
   vouch-proxy:
-    container_name: pr-vouch-proxy
+    container_name: uis-vouch-proxy
     image: voucher/vouch-proxy
 #    ports:
 #      - 9090:9090
