@@ -28,6 +28,8 @@ UIS_SKIP_CILOGON_VALIDATION=true
 UIS_USER_DATA=mock
 # Minimal number of characters that must be specified to search for a person
 UIS_SEARCH_MIN_CHAR_COUNT=3
+# limit on number of names returned by people
+UIS_QUERY_LIMIT=10
 
 # COmanage API user and key, COU to search for
 # and group that matches fabric active users
