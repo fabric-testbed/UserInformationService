@@ -73,6 +73,7 @@ postgres-#
 ```
 
 Read the COmanage section and other sections regarding impact of manipulataing the database by hand.
+
 # COmanage and User Management
 
 UIS talks to COmanage via its REST API to determine if users are active. One important
@@ -85,6 +86,8 @@ but their preferences are lost.
 
 Alternatively if the new co_person_id is known, UIS database `co_person_id` column can
 be updated with the new value for the re-enrolled user.
+
+Details of COmanage API can be found [here](https://spaces.at.internet2.edu/display/COmanage/CoPerson+API).
  
 # Testing
 
