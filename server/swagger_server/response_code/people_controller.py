@@ -207,8 +207,8 @@ def uuid_oidc_claim_sub_get(oidc_claim_sub):
     query_result = query.all()
 
     if len(query_result) == 0:
-        log.warn(f'Person UUID not found for {str(oidc_claim_sub)} in /uuid/oidc_claim_sub')
-        return 'Person UUID not found: {0}'.format(oidc_claim_sub), 404, \
+        log.warn(f'Person with OIDC Claim sub {str(oidc_claim_sub)} in /uuid/oidc_claim_sub not found in database')
+        return 'Person with OIDC claim sub not found: {0}'.format(oidc_claim_sub), 404, \
                {'X-Error': 'People Not Found'}
     else:
         if len(query_result) > 1:
