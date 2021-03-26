@@ -36,7 +36,7 @@ PyJWT==1.7.1
 pyparsing==2.4.7
 python-dateutil==2.6.0
 pytz==2020.1
-PyYAML==5.3.1
+PyYAML==5.4
 requests==2.25.1
 requests-toolbelt==0.9.1
 rfc3986==1.4.0
