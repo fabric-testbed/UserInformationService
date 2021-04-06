@@ -45,7 +45,7 @@ SQLAlchemy==1.3.20
 swagger-ui-bundle==0.0.8
 toml==0.10.2
 tqdm==4.54.1
-urllib3==1.26.2
+urllib3==1.26.4
 uWSGI==2.0.19.1
 virtualenv==20.3.1
 webencodings==0.5.1
