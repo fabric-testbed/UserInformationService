@@ -27,7 +27,7 @@ packaging==20.8
 pkginfo==1.6.1
 pluggy==0.13.1
 psycopg2-binary==2.8.6
-py==1.9.0
+py==1.10.0
 pyasn1==0.4.8
 pycodestyle==2.6.0
 pycparser==2.20
