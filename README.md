@@ -156,7 +156,7 @@ proper secrets, certs etc. You must edit the following files to support a produc
 
 To configure Vouch Proxy, copy [vouch/config_template](vouch/config_template) to `vouch/config`, edit at least the 
 following parameters:
-- `vouch/publicAccess` set to `false` (unless testing)
+- `vouch/publicAccess` set to `true` (UIS has to allow unauthenticated access in some cases)
 - `jwt/secret` must be changed - if using in production, it likely needs to be the same as on all other services,
 e.g. Project Registry
 - `cookie/domain` must be set to appropriate domain (127.0.0.1 only works for testing, set it to the domain where the
