@@ -14,7 +14,7 @@ services:
 #      - frontend
     restart: on-failure
 
-  api-server:
+  uis-server:
     build:
       context: ./
       dockerfile: Dockerfile
