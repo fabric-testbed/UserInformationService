@@ -27,6 +27,9 @@
 from flask import request
 from sqlalchemy import or_, and_
 
+from http import HTTPStatus
+from fss_utils.http_errors import HTTPErrorTuple
+
 from swagger_server.database import Session
 from swagger_server.database.models import FabricPerson
 from swagger_server.models.people_long import PeopleLong  # noqa: E501
@@ -42,25 +45,30 @@ def people_get(person_name=None):  # noqa: E501
     :type person_name: str
     :rtype: List[PeopleShort]
     """
+    if not utils.any_authenticated_user(request.headers):
+        return HTTPErrorTuple(HTTPStatus.UNAUTHORIZED,
+                              "User not authenticated").astuple()
+
     person_name = str(person_name).strip()
 
     # can't let them query by fewer than 5 characters
     if not person_name or len(person_name) < QUERY_CHARACTER_MIN:
         log.error(f'Bad /people request - insufficient information for search')
-        return "Must provide more information", 400, \
-               {'X-Error': 'Bad request'}
+        return HTTPErrorTuple(HTTPStatus.BAD_REQUEST,
+                              'Insufficient number of characters or bad name').astuple()
 
     session = Session()
     try:
         status, active_flag = utils.check_user_active(session, request.headers)
         if status != 200:
             log.error(f'Problem {status} contacting COmanage for active user check in /people')
-            return f'Error {status} contacting COmanage', 500, \
-                   {'X-Error': 'COmanage problem'}
+            return HTTPErrorTuple(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                  f'Error {status} contacting COmanage').astuple()
+
         if not active_flag:
             log.warn(f'User is not an active user in /people')
-            return 'User not an active user', 401, \
-                   {'X-Error': 'Unauthorized'}
+            return HTTPErrorTuple(HTTPStatus.FORBIDDEN,
+                                  'User is not an active user').astuple()
 
         # query by name and email
         query = session.query(FabricPerson).\
@@ -71,7 +79,7 @@ def people_get(person_name=None):  # noqa: E501
 
         if len(query_result) == 0:
             log.warn(f'No matching users found for {person_name} in /people')
-            return 'No matches for people found.', 404, {'X-Error': 'People Not Found'}
+            return HTTPErrorTuple(HTTPStatus.NOT_FOUND, 'No matches for people found.').astuple()
 
         response = []
         for person in query_result:
@@ -89,14 +97,18 @@ def people_whoami_get():  # noqa: E501
     If a person doesn't exist, it gets created.
     :rtype: PeopleLong
     """
+    if not utils.any_authenticated_user(request.headers):
+        return HTTPErrorTuple(HTTPStatus.UNAUTHORIZED,
+                              'User not authenticated').astuple()
+
     # trust the token, get claim sub from it
     # if token is absent, this helps portal figure out if user is not authenticated
     # so don't panic, just return 'Unauthorized'
     oidc_claim_sub = utils.extract_oidc_claim(request.headers)
     if oidc_claim_sub is None:
-        log.warn(f'No OIDC Claim Sub found or ID token missing in /whoami')
-        return 'User not authorized', 401, \
-               {'X-Error': 'Unauthorized'}
+        log.warn(f'No OIDC Claim Sub found in /whoami')
+        return HTTPErrorTuple(HTTPStatus.FORBIDDEN,
+                              "No OIDC Claim Sub found or ID token missing").astuple()
 
     session = Session()
     try:
@@ -112,21 +124,22 @@ def people_whoami_get():  # noqa: E501
             query_result = query.all()
             if len(query_result) != 1:
                 log.error('Unable to insert new user into UIS database in /whoami')
-                return 'Insertion in UIS database failed', 500, \
-                       {'X-Error': 'Internal server error'}
+                return HTTPErrorTuple(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                      'Insertion in UIS database failed').astuple()
         else:
             if len(query_result) > 1:
                 log.warn(f'Duplicate ODIC claim found in the database {str(oidc_claim_sub)} in /whoami')
-                return 'Duplicate OIDC Claim Found: {0}'.format(str(oidc_claim_sub)), 500, \
-                       {'X-Error': 'Duplicate person found'}
+                return HTTPErrorTuple(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                      'Duplicate OIDC Claim Found: {0}'.format(str(oidc_claim_sub))).astuple()
 
         person = query_result[0]
         # check with COmanage they are an active user
         status, active_flag, co_person_id = utils.comanage_check_active_person(person)
         if status != 200:
             log.error(f'Error {status} contacting comanage in /whoami')
-            return f'Error {status} contacting COmanage', 500, \
-                       {'X-Error': 'COmanage problem'}
+            return HTTPErrorTuple(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                  f'Error {status} contacting COmanage').astuple()
+
         commit_needed = False
         if co_person_id is not None and \
                 (person.co_person_id is None or len(person.co_person_id) == 0):
@@ -135,9 +148,9 @@ def people_whoami_get():  # noqa: E501
             commit_needed = True
 
         if not active_flag:
-            log.warn(f'User co_person_id={co_person_id} is not an active user in /whoami')
-            return 'User not an active user', 403, \
-                   {'X-Error': 'Forbidden'}
+            log.warn(f'User co_person_id={co_person_id} is not an active user in /people/whoami')
+            return HTTPErrorTuple(HTTPStatus.FORBIDDEN,
+                                  'User not an active user').astuple()
 
         # sometimes we don't get a name from the token
         # so get it from COmanage
@@ -162,11 +175,15 @@ def people_uuid_get(uuid):  # noqa: E501
     :type uuid: str
     :rtype: PeopleLong
     """
+    if not utils.any_authenticated_user(request.headers):
+        return "Unauthorized", 401, \
+               {'X-Error': 'User not authenticated'}
+
     uuid = str(uuid).strip()
     if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
         log.error(f'OIDC Claim Sub doesnt match uuid {uuid} in /people/uuid')
-        return "OIDC Claim Sub doesnt match UUID", 401, \
-               {'X-Error': 'Authorization information is missing or invalid'}
+        return HTTPErrorTuple(HTTPStatus.FORBIDDEN,
+                              "OIDC Claim Sub doesnt match UUID").astuple()
 
     session = Session()
     query = session.query(FabricPerson).filter(FabricPerson.uuid == uuid)
@@ -175,13 +192,13 @@ def people_uuid_get(uuid):  # noqa: E501
 
     if len(query_result) == 0:
         log.warn(f'Person UUID {uuid} not found in /people/uuid')
-        return 'Person UUID not found: {0}'.format(str(uuid)), 404, \
-               {'X-Error': 'People Not Found'}
+        return HTTPErrorTuple(HTTPStatus.NOT_FOUND,
+                              'Person UUID not found: {0}'.format(str(uuid))).astuple()
 
     if len(query_result) > 1:
         log.warn(f'Duplicate UUID {uuid} found in /people/uuid')
-        return 'Duplicate UUID Found: {0}'.format(str(uuid)), 500, \
-               {'X-Error': 'Duplicate person found'}
+        return HTTPErrorTuple(HTTPStatus.INTERNAL_SERVER_ERROR,
+                              'Duplicate UUID Found: {0}'.format(str(uuid))).astuple()
 
     person = query_result[0]
 
@@ -192,31 +209,36 @@ def uuid_oidc_claim_sub_get(oidc_claim_sub):
     """
     get the UUID mapped to this claim sub (open to any valid user)
     """
+    if not utils.any_authenticated_user(request.headers):
+        return HTTPErrorTuple(HTTPStatus.UNAUTHORIZED,
+                              'User not authenticated').astuple()
+
     oidc_claim_sub = str(oidc_claim_sub).strip()
 
     session = Session()
     status, active_flag = utils.check_user_active(session, request.headers)
     if status != 200:
         log.error(f'Error {status} contacting COmanage in /uuid/oidc_claim_sub')
-        return f'Error {status} contacting COmanage', 500, \
-               {'X-Error': 'COmanage problem'}
+        return HTTPErrorTuple(HTTPStatus.INTERNAL_SERVER_ERROR,
+                              f'Error {status} contacting COmanage').astuple()
+
     if not active_flag:
         log.warn(f'User is not an active user in /uuid/oidc_claim_sub')
-        return 'User not an active user', 401, \
-               {'X-Error': 'Unauthorized'}
+        return HTTPErrorTuple(HTTPStatus.FORBIDDEN,
+                              'User not an active user').astuple()
 
     query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
     query_result = query.all()
 
     if len(query_result) == 0:
         log.warn(f'Person with OIDC Claim sub {str(oidc_claim_sub)} in /uuid/oidc_claim_sub not found in database')
-        return 'Person with OIDC claim sub not found: {0}'.format(oidc_claim_sub), 404, \
-               {'X-Error': 'People Not Found'}
+        return HTTPErrorTuple(HTTPStatus.NOT_FOUND,
+                              'Person with OIDC claim sub not found: {0}'.format(oidc_claim_sub)).astuple()
     else:
         if len(query_result) > 1:
             log.warn(f'Duplicate OIDC Claim {str(oidc_claim_sub)} found in the database in /uuid/oidc_claim_sub')
-            return 'Duplicate OIDC Claim Found: {0}'.format(oidc_claim_sub), 500, \
-                   {'X-Error': 'Duplicate person found'}
+            return HTTPErrorTuple(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                  'Duplicate OIDC Claim Found: {0}'.format(oidc_claim_sub)).astuple()
 
     person = query_result[0]
     return person.uuid
