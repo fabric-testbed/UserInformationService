@@ -90,11 +90,13 @@ def people_whoami_get():  # noqa: E501
     :rtype: PeopleLong
     """
     # trust the token, get claim sub from it
+    # if token is absent, this helps portal figure out if user is not authenticated
+    # so don't panic, just return 'Unauthorized'
     oidc_claim_sub = utils.extract_oidc_claim(request.headers)
     if oidc_claim_sub is None:
-        log.error(f'No OIDC Claim Sub found or ID token missing in /whoami')
-        return 'No OIDC Claim Sub found or ID token missing', 404, \
-               {'X-Error': 'OIDC Claim Not Found'}
+        log.warn(f'No OIDC Claim Sub found or ID token missing in /whoami')
+        return 'User not authorized', 401, \
+               {'X-Error': 'Unauthorized'}
 
     session = Session()
     try:
@@ -134,8 +136,8 @@ def people_whoami_get():  # noqa: E501
 
         if not active_flag:
             log.warn(f'User co_person_id={co_person_id} is not an active user in /whoami')
-            return 'User not an active user', 401, \
-                   {'X-Error': 'Unauthorized'}
+            return 'User not an active user', 403, \
+                   {'X-Error': 'Forbidden'}
 
         # sometimes we don't get a name from the token
         # so get it from COmanage
