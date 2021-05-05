@@ -109,6 +109,42 @@ Once the containers are up connect to https://127.0.0.1:8443/ui to interact with
     - API Server
     - Vouch Proxy
     - Postgres 
+  
+## Testing components 
+
+If you don't want to use docker compose, you can start individual Dockers (for postgres and api server) as follows to help test:
+```
+$ docker run -d --name pgsql -e POSTGRES_PASSWORD=uiservice -e PGDATA=/var/lib/postgresql/data/pgdata -v /some/path/to/persistent/pgsqldata/:/var/lib/postgresql/data -p 5432:5432 postgres
+$ docker run -d --name uis -e POSTGRES_HOST=localhost -e POSTGRES_PORT=5432 -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=uiservice -e SWAGGER_HOST=127.0.0.1 -p 5000:5000 uis
+```
+
+Note that API server looks for environment variable `UISERVICE_MOCK` to be set to true to load tables with mock data automatically.
+
+### Testing the database
+
+Start the database docker as shown above. You can then get to `bash` inside of it and run the Posgres client tool 
+(you can also do it from outside the container if you have the client installed). Note that since Postgres is started
+as listening on a port, the client tool won't connect over a socket even from inside the container.
+
+```
+$ psql -h localhost -p 5432 -U postgres
+```
+Some helpful Postgres commamds: 
+
+- listing schema:
+```
+select table_name, column_name, data_type from information_schema.columns where table_name = 'fabric_papers';
+```
+- listing and changing databases
+```
+\l list databases
+\c <db name>
+```
+- describing tables in a database
+```
+\dt describe tables
+```
+
 
 # Deployment
 
@@ -120,7 +156,7 @@ proper secrets, certs etc. You must edit the following files to support a produc
 
 To configure Vouch Proxy, copy [vouch/config_template](vouch/config_template) to `vouch/config`, edit at least the 
 following parameters:
-- `vouch/publicAccess` set to `false` (unless testing)
+- `vouch/publicAccess` set to `true` (UIS has to allow unauthenticated access in some cases)
 - `jwt/secret` must be changed - if using in production, it likely needs to be the same as on all other services,
 e.g. Project Registry
 - `cookie/domain` must be set to appropriate domain (127.0.0.1 only works for testing, set it to the domain where the

@@ -93,7 +93,37 @@ NAME_CLAIM = 'name'
 EMAIL_CLAIM = 'email'
 
 
-def validate_uuid_by_oidc_claim(headers, puuid):
+def any_authenticated_user(headers) -> bool:
+    """
+    Validate that user is authenticated, i.e. a valid token is present in
+    the header.
+    :param headers: request headers
+    """
+    if SKIP_CILOGON_VALIDATION:
+        log.info("Skipping authentication check")
+        return True
+    else:
+        log.info("Validating that user is authenticated")
+
+    id_token = headers.get(ID_TOKEN_NAME)
+    if id_token is None:
+        log.warn("Authentication token not present in header")
+        return False
+
+    # validate the token
+    if jwt_validator is not None:
+        log.info("Validating CI Logon token")
+        code, e = jwt_validator.validate_jwt(token=id_token)
+        if code is not ValidateCode.VALID:
+            log.error(f"Unable to validate provided token: {code}/{e}")
+            return False
+    else:
+        log.warning("JWT Token validator not initialized, skipping validation")
+        return False
+    return True
+
+
+def validate_uuid_by_oidc_claim(headers, puuid) -> bool:
     """
     Extract OIDC claim sub from header identity token and match against UUID. Return True
     if match, False otherwise.
@@ -123,7 +153,11 @@ def validate_uuid_by_oidc_claim(headers, puuid):
         log.warning("JWT Token validator not initialized, skipping validation")
 
     decoded = jwt.decode(id_token, verify=False)
-    oidc_claim_sub = decoded.get(SUB_CLAIM)
+    oidc_claim_sub = decoded.get(SUB_CLAIM, None)
+
+    if oidc_claim_sub is None:
+        log.error('"sub" claim not present in the decoded token')
+        return False
 
     session = Session()
     try:
@@ -146,7 +180,7 @@ def validate_uuid_by_oidc_claim(headers, puuid):
         session.close()
 
 
-def validate_oidc_claim(headers, oidc_claim_sub):
+def validate_oidc_claim(headers, oidc_claim_sub) -> bool:
     """
     Extract OIDC claim sub from header identity token and compare against parameter. Return
     True if match, False otherwise. Does not touch database.
@@ -206,7 +240,7 @@ def extract_oidc_claim(headers):
         log.warning("JWT Token validator not initialized, skipping validation")
         decoded = jwt.decode(id_token, verify=False)
 
-    header_sub = decoded.get(SUB_CLAIM)
+    header_sub = decoded.get(SUB_CLAIM, None)
 
     log.info(f"Extracted sub from token: {header_sub}")
     return header_sub

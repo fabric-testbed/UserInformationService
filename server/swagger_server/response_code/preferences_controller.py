@@ -27,6 +27,9 @@
 import json
 from flask import request
 
+from http import HTTPStatus
+from fss_utils.http_errors import cors_response
+
 from swagger_server import log
 from swagger_server.database import Session
 from swagger_server.models.preferences import Preferences
@@ -42,16 +45,21 @@ def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
     """
     Get user preferences as a string from the database
     """
+    if not utils.any_authenticated_user(request.headers):
+        return cors_response(HTTPStatus.UNAUTHORIZED,
+                             xerror='User not authenticated')
+
     uuid = str(uuid).strip()
     if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
         log.error(f'OIDC Claim Sub doesnt match UUID {uuid} in /preferences/preftype/uuid')
-        return "OIDC Claim Sub doesnt match UUID", 401, \
-               {'X-Error': 'Authorization information is missing or invalid'}
+        return cors_response(HTTPStatus.FORBIDDEN,
+                             xerror='OIDC Claim Sub doesnt match UUID')
 
     # get preference by type
     if preftype not in PreferenceType.__members__.keys():
         log.warn(f'Inavlid preference type {str(preftype)} in /preferences/preftype/uuid')
-        return 'Invalid preference type {0}'.format(preftype), 400, {'X-Error': 'Invalid parameter'}
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror='Invalid parameter')
 
     session = Session()
     try:
@@ -61,22 +69,24 @@ def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
 
         if len(query_result) == 0:
             log.warn(f'Person UUID {uuid} not found in /preferences/preftype/uuid')
-            return 'Person UUID not found: {0}'.format(uuid), 404, \
-                   {'X-Error': 'People Not Found'}
+            return cors_response(HTTPStatus.NOT_FOUND,
+                                 xerror='Person UUID not found: {0}'.format(uuid))
 
         if len(query_result) > 1:
             log.warn(f"Duplicate UUID {uuid} detected in /preferences/preftype/uuid")
-            return 'Duplicate UUID Found: {0}'.format(uuid), 500, {'X-Error': 'Duplicate UUID found'}
+            return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                 xerror='Duplicate UUID Found: {0}'.format(uuid))
 
         if getattr(query_result[0], preftype) is not None:
             response = json.loads(getattr(query_result[0], preftype))
         else:
             log.warn(f'Preferences {preftype} not found for UUID {uuid}')
-            return 'Preference {0} for UUID {1} not found'.format(preftype, uuid), \
-                   204, {'X-Error': 'Preference not found'}
+            return cors_response(HTTPStatus.NO_CONTENT,
+                                 xerror='Preference {0} for UUID {1} not found'.format(preftype, uuid))
 
         if not isinstance(response, dict):
-            return 'Unable to parse object into dict', 500, {'X-Error': 'DB return not a JSON dictionary as preference'}
+            return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                 xerror='DB return not a JSON dictionary as preference')
 
         return response
     finally:
@@ -87,16 +97,21 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E5
     """
     Set user preferences as a string in the database
     """
+    if not utils.any_authenticated_user(request.headers):
+        return cors_response(HTTPStatus.UNAUTHORIZED,
+                             xerror='User not authenticated')
+
     uuid = str(uuid).strip()
     if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
         log.error(f'OIDC Claim Sub doesnt match UUID {uuid} in /preferences/preftype/uuid')
-        return "OIDC Claim Sub doesnt match UUID", 401, \
-               {'X-Error': 'Authorization information is missing or invalid'}
+        return cors_response(HTTPStatus.FORBIDDEN,
+                             xerror='OIDC Claim Sub doesnt match UUID')
 
     # put preference by type
     if preftype not in PreferenceType.__members__.keys():
         log.warn(f'Inavlid preference type {str(preftype)} in /preferences/preftype/uuid')
-        return 'Invalid preference type {0}'.format(str(preftype)), 400, {'X-Error': 'Invalid parameter'}
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror='Invalid preference type {0}'.format(str(preftype)))
 
     session = Session()
     try:
@@ -106,11 +121,13 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E5
 
         if len(query_result) == 0:
             log.warn(f'Person UUID {uuid} not found in /preferences/preftype/uuid')
-            return 'Person UUID Not Found: {0}'.format(uuid), 404, {'X-Error': 'Person UUID Not Found'}
+            return cors_response(HTTPStatus.NOT_FOUND,
+                                 xerror='Person UUID Not Found: {0}'.format(uuid))
 
         if len(query_result) > 1:
             log.warn(f'Duplicate UUID {uuid} not found in /preferences/preftype/uuid')
-            return 'Duplicate UUID Found: {0}'.format(uuid), 500, {'X-Error': 'Duplicate UUID found'}
+            return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                 xerror='Duplicate UUID Found: {0}'.format(uuid))
 
         person = query_result[0]
 
@@ -127,11 +144,15 @@ def preferences_uuid_get(uuid):  # noqa: E501
     """
     Get all user preferences as a single object
     """
+    if not utils.any_authenticated_user(request.headers):
+        return cors_response(HTTPStatus.UNAUTHORIZED,
+                             xerror='User not authenticated')
+
     uuid = str(uuid).strip()
     if not utils.validate_uuid_by_oidc_claim(request.headers, uuid):
         log.error(f'OIDC Claim Sub doesnt match UUID {uuid} in /preferences/uuid')
-        return "OIDC Claim Sub doesnt match UUID", 401, \
-               {'X-Error': 'Authorization information is missing or invalid'}
+        return cors_response(HTTPStatus.FORBIDDEN,
+                             xerror='OIDC Claim Sub doesnt match UUID')
 
     session = Session()
     try:
@@ -141,11 +162,13 @@ def preferences_uuid_get(uuid):  # noqa: E501
 
         if len(query_result) == 0:
             log.warn(f'Person UUID {uuid} not found in /preferences/uuid')
-            return 'Person UUID Not Found: {0}'.format(uuid), 404, {'X-Error': 'Person UUID Not Found'}
+            return cors_response(HTTPStatus.NOT_FOUND,
+                                 xerror='Person UUID Not Found: {0}'.format(uuid))
 
         if len(query_result) > 1:
             log.warn(f'Duplicate UUID {uuid} not found in /preferences/uuid')
-            return 'Duplicate UUID Found: {0}'.format(uuid), 500, {'X-Error': 'Duplicate UUID found'}
+            return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                 xerror='Duplicate UUID Found: {0}'.format(uuid))
 
         person = query_result[0]
 
