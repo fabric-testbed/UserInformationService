@@ -169,6 +169,7 @@ following parameters:
 - `vouch/publicAccess` set to `true` (UIS has to allow unauthenticated access in some cases)
 - `jwt/secret` must be changed - if using in production, it likely needs to be the same as on all other services,
 e.g. Project Registry
+- `post_logou_redirect_uris` has the proper URI where user is redirected after the logout
 - `cookie/domain` must be set to appropriate domain (127.0.0.1 only works for testing, set it to the domain where the
   application is deployed - in order for cookies to be valid at other applications within the domain)
 - `oauth/client_id` and `oauth/client_secret` must match those issued to this service in CI Logon as OIDC client
