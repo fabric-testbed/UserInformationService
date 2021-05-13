@@ -110,6 +110,9 @@ Once the containers are up connect to https://127.0.0.1:8443/ui to interact with
     - Vouch Proxy
     - Postgres 
   
+The nginx container offers /login and /logout entrypoints to facilitate redirecting to CILogon while
+testing without a portal. 
+  
 ## Testing components 
 
 If you don't want to use docker compose, you can start individual Dockers (for postgres and api server) as follows to help test:
@@ -145,6 +148,13 @@ select table_name, column_name, data_type from information_schema.columns where 
 \dt describe tables
 ```
 
+### Testing comanage code
+
+- Copy appropriate environment file used for docker-compose from top level to `server/test`.
+- Prepend each statement with `export`.
+- Execute `. env_local` (or whatever name)
+- Disable database code (if not running a local database) in `server/__init__.py`
+- Run the test code in `server/test` from shell
 
 # Deployment
 
@@ -159,6 +169,7 @@ following parameters:
 - `vouch/publicAccess` set to `true` (UIS has to allow unauthenticated access in some cases)
 - `jwt/secret` must be changed - if using in production, it likely needs to be the same as on all other services,
 e.g. Project Registry
+- `post_logout_redirect_uris` has the proper URI where user is redirected after the logout
 - `cookie/domain` must be set to appropriate domain (127.0.0.1 only works for testing, set it to the domain where the
   application is deployed - in order for cookies to be valid at other applications within the domain)
 - `oauth/client_id` and `oauth/client_secret` must match those issued to this service in CI Logon as OIDC client

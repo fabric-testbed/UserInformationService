@@ -12,6 +12,11 @@ LDAP_PARAM_PREFIX = "LDAP"
 db_params = config_from_env(DB_PARAM_PREFIX)
 ldap_params = config_from_env(LDAP_PARAM_PREFIX)
 
+DISABLE_DATABASE = False
+if db_params.get('disable_database', None) == 'true':
+    DISABLE_DATABASE = True
+
+# even if database is disabled its harmless and then imports everywhere are not affected
 print(f"Creating POSTGRES ENGINE with parameters {db_params}")
 POSTGRES_ENGINE = 'postgres://' + db_params['user'] + ':' + db_params['password'] \
                   + '@' + db_params['host'] + ':' + db_params['port'] \
