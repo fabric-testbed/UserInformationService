@@ -8,21 +8,23 @@ from swagger_server import encoder
 from fss_utils.jwt_validate import ValidateCode, JWTValidator
 
 from swagger_server.database.models import metadata
-from swagger_server.database import engine
+from swagger_server.database import DISABLE_DATABASE, engine
 from swagger_server.database.load_data import load_people_data, load_version_data
 
 from .config import config_from_file, config_from_env
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger("User Information Service")
 
-# create tables (should be idempotent)
-log.info("Creating tables")
-metadata.create_all(engine)
+# for testing e.g. comanage code we don't need the database running
+if not DISABLE_DATABASE:
+    # create tables (should be idempotent)
+    log.info("Creating database tables")
+    metadata.create_all(engine)
 
-# load version data
-log.info("Loading version table")
-load_version_data()
+    # load version data
+    log.info("Loading version table")
+    load_version_data()
 
 # load app configuration parameters
 APP_PARAM_PREFIX = "UIS"

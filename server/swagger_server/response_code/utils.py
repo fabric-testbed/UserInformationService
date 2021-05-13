@@ -382,7 +382,6 @@ def comanage_check_person_couid(person_id, couid) -> Tuple[int, bool]:
         log.debug(f"COmanage request exception {e} encountered in co_person_roles.json, "
                   f"returning status 500")
         return 500, False
-
     if response.status_code == 204:
         # we got nothing back, just say so
         return 200, False
@@ -390,6 +389,7 @@ def comanage_check_person_couid(person_id, couid) -> Tuple[int, bool]:
         return response.status_code, False
     response_obj = response.json()
     if response_obj.get('CoPersonRoles', None) is None:
+        log.debug(f"COmanage request returned no personal roles in co_person_roles.json")
         return 500, False
     for role in response_obj['CoPersonRoles']:
         if role.get('CouId', None) is not None and role['CouId'] == str(couid):
@@ -405,15 +405,16 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, str or None
     """
     # if person_id is present, skip the line
     if person.co_person_id is not None:
-        log.debug(f'Checking person {person.oidc_claim_sub} active status by co_person_id with person id {person.co_person_id}')
+        log.debug(f'Checking person {person.oidc_claim_sub} active status by co_person_id '
+                  f'with person id {person.co_person_id} against active COU {CO_ACTIVE_USERS_COU}')
         code, active_flag = comanage_check_person_couid(person.co_person_id, CO_ACTIVE_USERS_COU)
         return code, active_flag, None
     # if email is present, try that first
     people_list = []
     person_id = None
     email = person.email if person.email is not None else person.eppn
-    log.debug(f'Checking person {person.oidc_claim_sub} active status by searching via email {email}')
     if email is not None:
+        log.debug(f'Checking person {person.oidc_claim_sub} active status by searching via email {email}')
         # easiest if there is email
         code, people_list = comanage_list_people_matches(email=email)
         if code == 204:
@@ -430,17 +431,30 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, str or None
             else:
                 lname = name_split[2]
             # try to find by fname, lname
-            log.debug(f'Checking person {person.oidc_claim_sub} active status by searching fname, lname {fname} {lname}')
+            log.debug(f'Checking person {person.oidc_claim_sub} active status '
+                      f'by searching fname, lname {fname} {lname}')
             code, people_list = comanage_list_people_matches(given=fname, family=lname)
             if code == 204:
                 # nothing found
                 return 200, False, None
             if code != 200:
                 return code, False, None
+    person_id = None
+    oidcsub_found = False
     for people in people_list:
-        if people.get('ActorIdentifier', None) is not None and people['ActorIdentifier'] == person.oidc_claim_sub:
-            person_id = people.get('Id', None)
+        # find a match for person.oidc_claim_sub
+        person_id = people.get('Id', None)
+        if person_id is None:
+            continue
+        oidcsub = comanage_get_person_identifier(person_id, 'oidcsub')
+        if oidcsub is not None:
+            oidcsub_found = True
+        if oidcsub == person.oidc_claim_sub:
+            break
+        person_id = None
     if person_id is None:
+        log.debug(f'Unable to identify a person {person.oidc_claim_sub} from the list (of length {len(people_list)}) '
+                  f'of COmanage matches. OIDC sub found flag is {oidcsub_found}.')
         # person id not available
         return 200, False, None
     code, active_flag = comanage_check_person_couid(person_id, CO_ACTIVE_USERS_COU)
@@ -491,3 +505,28 @@ def check_user_active(session, headers) -> Tuple[int, bool]:
     # check with COmanage they are an active user
     status, active_flag, _ = comanage_check_active_person(person)
     return status, active_flag
+
+
+def comanage_get_person_identifier(co_person_id, identifier_type) -> str or None:
+    """
+    Get a specific type of identifier about this co_person_id:
+    identifer can be for example 'eppn', 'eptid', 'oidcsub', 'sorid',
+    'fabricalphaid'
+    """
+    assert co_person_id is not None
+    assert identifier_type is not None
+
+    params = {'copersonid': co_person_id}
+    response = requests.get(url=CO_REGISTRY_URL + 'identifiers.json',
+                            params=params,
+                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    person_id = None
+    if response.status_code == requests.codes.ok:
+        data = response.json()
+        for identifier in data['Identifiers']:
+            if identifier['Type'] == identifier_type:
+                person_id = identifier['Identifier']
+                break
+    else:
+        log.debug(f'Received code {response.status_code} when calling COmanage identifiers.json')
+    return person_id

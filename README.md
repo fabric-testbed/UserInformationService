@@ -110,6 +110,9 @@ Once the containers are up connect to https://127.0.0.1:8443/ui to interact with
     - Vouch Proxy
     - Postgres 
   
+The nginx container offers /login and /logout entrypoints to facilitate redirecting to CILogon while
+testing without a portal. 
+  
 ## Testing components 
 
 If you don't want to use docker compose, you can start individual Dockers (for postgres and api server) as follows to help test:
@@ -145,6 +148,13 @@ select table_name, column_name, data_type from information_schema.columns where 
 \dt describe tables
 ```
 
+### Testing comanage code
+
+- Copy appropriate environment file used for docker-compose from top level to `server/test`.
+- Prepend each statement with `export`.
+- Execute `. env_local` (or whatever name)
+- Disable database code (if not running a local database) in `server/__init__.py`
+- Run the test code in `server/test` from shell
 
 # Deployment
 
