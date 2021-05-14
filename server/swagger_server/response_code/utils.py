@@ -408,7 +408,13 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, str or None
         log.debug(f'Checking person {person.oidc_claim_sub} active status by co_person_id '
                   f'with person id {person.co_person_id} against active COU {CO_ACTIVE_USERS_COU}')
         code, active_flag = comanage_check_person_couid(person.co_person_id, CO_ACTIVE_USERS_COU)
-        return code, active_flag, None
+
+        # if everything OK and user active, return immediately, otherwise
+        # fall through and try to find the person and update their co_person_id (may happen
+        # if they were purged from comanage)
+        if code == 200 and active_flag:
+            return code, active_flag, None
+
     # if email is present, try that first
     people_list = []
     person_id = None
