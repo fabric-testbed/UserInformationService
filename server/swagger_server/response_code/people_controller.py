@@ -142,9 +142,8 @@ def people_whoami_get():  # noqa: E501
                                  xerror=f'Error {status} contacting COmanage')
 
         commit_needed = False
-        if co_person_id is not None and \
-                (person.co_person_id is None or len(person.co_person_id) == 0):
-            # write Id to the database if we didn't have it and got it now
+        if co_person_id is not None:
+            # (over)write Id to the database (fresh value or after a purge)
             setattr(person, 'co_person_id', co_person_id)
             commit_needed = True
 
