@@ -364,7 +364,8 @@ def comanage_list_people_matches(given: str = None, family: str = None, email: s
     if response.status_code != 200:
         return response.status_code, []
     response_obj = response.json()
-    return response.status_code, response_obj['CoPeople']
+    retlist = response_obj['CoPeople'] if response_obj.get('CoPeople', None) is not None else list()
+    return response.status_code, retlist
 
 
 def comanage_check_person_couid(person_id, couid) -> Tuple[int, bool]:
@@ -491,8 +492,13 @@ def comanage_get_person_name(co_person_id) -> Tuple[int, str or None]:
         return 200, None
     # use the first name entry
     names = names_list[0]
-    name = "".join([names['Given'], ' ', names['Middle'], ' ',
-                    names['Family'], ' ', names['Suffix']])
+    name = " ".join([names.get('Given', ""),
+                     names.get('Middle', ""),
+                     names.get('Family', ""),
+                     names.get('Suffix', "")])
+    if len(name) == 3:
+        name = 'No Name Given'
+
     # strip extra spaces
     name = re.sub(' +', ' ', name)
     return 200, name[:-1]
@@ -529,10 +535,11 @@ def comanage_get_person_identifier(co_person_id, identifier_type) -> str or None
     person_id = None
     if response.status_code == requests.codes.ok:
         data = response.json()
-        for identifier in data['Identifiers']:
-            if identifier['Type'] == identifier_type:
-                person_id = identifier['Identifier']
-                break
+        if data.get('Identifiers', None) is not None:
+            for identifier in data['Identifiers']:
+                if identifier['Type'] == identifier_type:
+                    person_id = identifier['Identifier']
+                    break
     else:
         log.debug(f'Received code {response.status_code} when calling COmanage identifiers.json')
     return person_id
