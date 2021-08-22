@@ -285,6 +285,15 @@ def comanage_load_all_people(do_database = True):
             session.commit()
 
 
+def drop_recreate():
+    """
+    Drop and recreate all tables
+    """
+    print("CAUTION: Dropping and recreating all tables")
+    metadata.drop_all(engine)
+    metadata.create_all(engine)
+
+
 def load_people_data(flag):
 
     if flag == 'mock':
@@ -293,8 +302,7 @@ def load_people_data(flag):
         people = get_people_list()
     elif flag == 'rest':
         # uses newer format and doesn't need the code below
-        metadata.drop_all(engine)
-        metadata.create_all(engine)
+        drop_recreate()
         comanage_load_all_people(False)
         return
     else:
@@ -302,8 +310,7 @@ def load_people_data(flag):
         return
 
     # drop and recreate all tables
-    metadata.drop_all(engine)
-    metadata.create_all(engine)
+    drop_recreate()
 
     session = Session()
 
