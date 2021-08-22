@@ -109,7 +109,7 @@ def run_sql_commands(commands):
         else:
             session.execute(commands)
         session.commit()
-        print("[INFO] data loaded successfully!")
+        print("INFO data loaded successfully!")
     except (Exception, psycopg2.DatabaseError) as error:
         print(error)
     finally:
@@ -197,7 +197,7 @@ def comanage_load_all_people(do_database = True):
                              filter(lambda x: x['Status'] == 'Active',
                                     co_people)))
     else:
-        print(f'Unable to get people from COmanage due to {response=}')
+        print(f'ERROR: Unable to get people from COmanage due to {response=}')
         return
     for ids in person_ids:
         # ids[0] oidc claim sub (url)
@@ -217,13 +217,14 @@ def comanage_load_all_people(do_database = True):
                 if identifier['Type'] == 'oidcsub':
                     oidc_claim_sub = identifier['Identifier']
                     if oidc_claim_sub != ids[0]:
-                        print(f"OIDC claim sub received from identifiers {oidc_claim_sub=} does not match one "
+                        print(f"ERROR: OIDC claim sub received from identifiers {oidc_claim_sub=} does not match one "
                               f"received from people {ids[0]=}")
                     break
                 if identifier['Type'] == 'eppn':
                     eppn = identifier['Identifier']
         else:
-            print(f"Unable to get identifiers from COmanage for {ids[0]}, {ids[1]} due to {response=}")
+            print(f"ERROR: Unable to get identifiers from COmanage for {ids[0]}, {ids[1]} due to {response=}, "
+                  f"person will be skipped")
             continue
         if oidc_claim_sub is None:
             oidc_claim_sub = ids[0]
@@ -250,7 +251,8 @@ def comanage_load_all_people(do_database = True):
             # strip extra spaces
             name = re.sub(' +', ' ', name)
         else:
-            print(f"Unable to get name and/or email from COmanage for {ids[0]}, {ids[1]} due to {response=}")
+            print(f"ERROR: Unable to get name and/or email from COmanage for {ids[0]}, {ids[1]} due to {response=},"
+                  f"person will be skipped")
             continue
 
         # email
@@ -266,9 +268,9 @@ def comanage_load_all_people(do_database = True):
             except KeyError:
                 pass
 
-        print(f"Adding active person {oidc_claim_sub=}, {name=}, {eppn=}, {email=}")
         people_uuid = uuid4()
-        print(f"Adding {name=} with GUID {people_uuid} to database")
+        print(f"INFO: Adding active person {oidc_claim_sub=}, {name=}, {eppn=}, "
+              f"{email=} with GUID {people_uuid} to database")
 
         if do_database:
             dbperson = FabricPerson()
@@ -281,7 +283,7 @@ def comanage_load_all_people(do_database = True):
 
             ret = insert_unique_person(dbperson, session)
             if ret != InsertOutcome.OK and ret != InsertOutcome.DUPLICATE_UPDATED:
-                print(f"Unable to add or update entry for {dbperson.oidc_claim_sub} due to {ret}. ")
+                print(f"ERROR: Unable to add or update entry for {dbperson.oidc_claim_sub} due to {ret}. ")
             session.commit()
 
 
@@ -289,7 +291,7 @@ def drop_recreate():
     """
     Drop and recreate all tables
     """
-    print("CAUTION: Dropping and recreating all tables")
+    print("WARN: Dropping and recreating all tables")
     metadata.drop_all(engine)
     metadata.create_all(engine)
 
@@ -297,10 +299,13 @@ def drop_recreate():
 def load_people_data(flag):
 
     if flag == 'mock':
+        print("INFO: Using mock data")
         people = mock_people
     elif flag == 'ldap':
+        print("INFO: Using LDAP to load people data")
         people = get_people_list()
     elif flag == 'rest':
+        print("INFO: Using COmanage REST to load people data")
         # uses newer format and doesn't need the code below
         drop_recreate()
         comanage_load_all_people(False)
@@ -316,7 +321,7 @@ def load_people_data(flag):
 
     for person in people:
         people_uuid = uuid4()
-        print(f"Adding {person.get('cn')} with GUID {people_uuid} to database")
+        print(f"INFO: Adding {person.get('cn')} with GUID {people_uuid} to database")
         dbperson = FabricPerson()
         dbperson.uuid = people_uuid
         dbperson.registered_on = datetime.datetime.utcnow()
@@ -343,7 +348,7 @@ def load_people_data(flag):
         dbperson.alt_ids = alt_ids
         ret = insert_unique_person(dbperson, session)
         if ret != InsertOutcome.OK and ret != InsertOutcome.DUPLICATE_UPDATED:
-            print(f"Unable to add entry for {dbperson.oidc_claim_sub} due to {ret}. ")
+            print(f"ERROR: Unable to add entry for {dbperson.oidc_claim_sub} due to {ret}. ")
     session.commit()
 
 
