@@ -45,8 +45,8 @@ if app_params.get('user_data', None) == 'mock':
     LOAD_USER_DATA = 'mock'
 elif app_params.get('user_data', None) == 'ldap':
     LOAD_USER_DATA = 'ldap'
-log.info(f"Loading {LOAD_USER_DATA} user data")
-load_people_data(LOAD_USER_DATA)
+elif app_params.get('user_data', None) == 'rest':
+    LOAD_USER_DATA = 'rest'
 
 QUERY_CHARACTER_MIN = 3
 if app_params.get('search_min_char_count', None) is not None:
@@ -81,6 +81,10 @@ COID = app_params.get("coid")
 CO_ACTIVE_USERS_COU = app_params.get("co_active_users_cou")
 # registry URL
 CO_REGISTRY_URL = app_params.get("co_registry_url")
+
+# Load user data
+log.info(f"Loading {LOAD_USER_DATA} user data")
+load_people_data(LOAD_USER_DATA)
 
 # Flask initialization for uwsgi (so it can find swagger_server:app)
 app = connexion.App(__name__, specification_dir='./swagger/')

@@ -269,7 +269,10 @@ def create_new_fabric_person_from_token(headers, check_unique=False):
         dbperson.email = decoded.get(EMAIL_CLAIM)
         if check_unique:
             ret = insert_unique_person(dbperson, session)
-            if ret == InsertOutcome.OK:
+            if ret == InsertOutcome.DUPLICATE_UPDATED:
+                log.warn(f"Updated existing entry instead of adding a new one for user {decoded.get(SUB_CLAIM)}"
+                         f"with UUID {dbperson.uuid}")
+            if ret == InsertOutcome.OK or ret == InsertOutcome.DUPLICATE_UPDATED:
                 session.commit()
             else:
                 log.error(f"Unable to insert entry for user {decoded.get(SUB_CLAIM)} "
@@ -541,5 +544,25 @@ def comanage_get_person_identifier(co_person_id, identifier_type) -> str or None
                     person_id = identifier['Identifier']
                     break
     else:
-        log.debug(f'Received code {response.status_code} when calling COmanage identifiers.json')
+        log.error(f'Received code {response.status_code} when calling COmanage identifiers.json')
     return person_id
+
+
+def comanage_get_all_people() -> List[Any]:
+    """
+    Get a full list of active people's OIDC subs  for e.g. reinitializing the database. Returns
+    empty list in case of error (logging the error)
+    """
+    params = {'coid': COID}
+    response = requests.get(url=CO_REGISTRY_URL + 'co_people.json',
+                            params=params,
+                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    if response.status_code == requests.codes.ok:
+        data = response.json()
+        people_data = response.json()
+        co_people = people_data['CoPeople'] if people_data.get('CoPeople', None) is not None else list()
+        res = list(map(lambda x: x['ActorIdentifier'], filter(lambda x: x['Status'] == 'Active', co_people)))
+        return res
+    else:
+        log.error(f'Received code {response.status_code} when calling COmanage co_people.json')
+        return list()

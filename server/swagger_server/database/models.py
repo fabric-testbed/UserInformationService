@@ -154,7 +154,8 @@ class PreferenceType(Enum):
 class InsertOutcome(Enum):
     OK = 0
     UNIQUE_FIELD_MISSING = 1
-    DUPLICATE_FOUND = 2
+    DUPLICATE_UPDATED = 2
+    MULTIPLE_DUPLICATES_FOUND = 3
 
 
 def insert_unique_person(person: FabricPerson, session) -> InsertOutcome:
@@ -181,9 +182,9 @@ def insert_unique_person(person: FabricPerson, session) -> InsertOutcome:
             if getattr(dbperson, attr) != getattr(person, attr):
                 setattr(dbperson, attr, getattr(person, attr))
         # commit should be called later
-        return InsertOutcome.DUPLICATE_FOUND
+        return InsertOutcome.DUPLICATE_UPDATED
     if len(query_result) > 1:
-        return InsertOutcome.DUPLICATE_FOUND
+        return InsertOutcome.MULTIPLE_DUPLICATES_FOUND
 
     session.add(person)
 
