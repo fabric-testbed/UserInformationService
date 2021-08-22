@@ -188,6 +188,7 @@ following values:
   - Note that this option will eventually be deprecated in favor of `rest`. For now both can be used in parallel
 - `rest` - use COmanage REST API to load the data. Uses `UIS_COXXXX` variables to configure the behavior.  
 
+**Note**: tables are dropped and recreated if any option other than `none` is used - loss of data will result!
 
 # References
 
