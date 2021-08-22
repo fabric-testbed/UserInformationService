@@ -178,6 +178,17 @@ e.g. Project Registry
 More details on configuring the service with VouchProxy and Nginx for production is contained with 
 [Project Registry](https://github.com/fabric-testbed/project-registry) - a similar System Service.
 
+## Populating database
+
+`UIS_USER_DATA` variable in the environment file determines where data comes from. The variable can take one of the
+following values:
+- `none` - no data is preloaded 
+- `mock` - mock data is loaded. it is internal to the code and should only be used in alpha/test deployments.
+- `ldap` - use LDAP interface to COmanage to load the data. You must also specify values of all `LDAP_XXX` variables.
+  - Note that this option will eventually be deprecated in favor of `rest`. For now both can be used in parallel
+- `rest` - use COmanage REST API to load the data. Uses `UIS_COXXXX` variables to configure the behavior.  
+
+
 # References
 
 - Swagger: [https://swagger.io](https://swagger.io)

@@ -9,30 +9,33 @@ POSTGRES_PASSWORD=uiservice
 PGDATA=/var/lib/postgresql/data/pgdata
 POSTGRES_DB=postgres
 
-# COmanage LDAP configuration
+# COmanage LDAP configuration (only needed if using 'ldap' option for UIS_USER_DATA)
 LDAP_HOST=localhost
 LDAP_USER=user
 LDAP_PASSWORD=password
 LDAP_SEARCH_BASE=searchbase
-
-# App configuration parameters
 
 # Token validation parameters
 UIS_CILOGON_CERTS="https://cilogon.org/oauth2/certs"
 # Uses HH:MM:SS (less than 24 hours)
 UIS_CILOGON_KEY_REFRESH="00:10:00"
 
-# turn off CILogon validation?
+# turn off CILogon cert validation?
 UIS_SKIP_CILOGON_VALIDATION=true
-# load mock data, LDAP or none
+
+# load mock data, LDAP, rest or none
+# 'mock' data is built in and should only be used for alpha/test deployments
+# 'ldap' option make sure LDAP_XXX parameters are filled in. This option is
+# expected to be deprecated in favor of 'rest'
+# 'rest' option uses UIS_COXXXX parameters
 UIS_USER_DATA=mock
 # Minimal number of characters that must be specified to search for a person
 UIS_SEARCH_MIN_CHAR_COUNT=3
 # limit on number of names returned by people
 UIS_QUERY_LIMIT=10
 
-# COmanage API user and key, COU to search for
-# and group that matches fabric active users
+# COmanage API user and key, COU to search for and group that matches fabric
+# active users. All must be specified.
 UIS_CO_REGISTRY_URL="https://registry-test.cilogon.org/registry/"
 UIS_COAPI_USER="user"
 UIS_COAPI_KEY="key"
