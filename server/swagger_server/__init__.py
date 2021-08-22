@@ -1,5 +1,4 @@
 import connexion
-import os
 import logging
 import datetime
 

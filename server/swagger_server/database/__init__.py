@@ -2,6 +2,7 @@
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.declarative import declarative_base
 
 from ..config import config_from_file, config_from_env
 
@@ -34,5 +35,7 @@ POSTGRES_ENGINE = 'postgres://' + db_params['user'] + ':' + db_params['password'
 
 engine = create_engine(POSTGRES_ENGINE)
 Session = sessionmaker(bind=engine)
+Base = declarative_base()
+metadata = Base.metadata
 
 TIMEZONE = 'America/New_York'

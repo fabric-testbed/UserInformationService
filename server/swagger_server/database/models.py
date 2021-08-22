@@ -25,14 +25,11 @@
 # Author: Ilya Baldin (ibaldin@renci.org), Michael Stealey (stealey@renci.org)
 
 from sqlalchemy import Column, Integer, String, ForeignKey, Table, TIMESTAMP
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from enum import Enum, unique
 
-
-Base = declarative_base()
-metadata = Base.metadata
+from . import Base, metadata
 
 
 # secondary table for papers-to-authors many-to-many

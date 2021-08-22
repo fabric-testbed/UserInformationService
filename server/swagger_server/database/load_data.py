@@ -36,6 +36,8 @@ from ldap3 import Connection, Server, ALL
 from swagger_server.database import Session, ldap_params, COID, COAPI_USER, COAPI_KEY, CO_REGISTRY_URL
 from swagger_server.database.models import FabricPerson, AuthorID, InsertOutcome, insert_unique_person
 
+from . import metadata, engine
+
 mock_people = [
     {
         'cn': 'System Administrator',
@@ -291,10 +293,17 @@ def load_people_data(flag):
         people = get_people_list()
     elif flag == 'rest':
         # uses newer format and doesn't need the code below
+        metadata.drop_all(engine)
+        metadata.create_all(engine)
         comanage_load_all_people(False)
         return
     else:
+        # leave everything untouched
         return
+
+    # drop and recreate all tables
+    metadata.drop_all(engine)
+    metadata.create_all(engine)
 
     session = Session()
 
