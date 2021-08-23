@@ -172,7 +172,7 @@ def load_version_data():
     run_sql_commands(commands)
 
 
-def comanage_load_all_people(do_database = True):
+def comanage_load_all_people(do_database=True):
     """
     Load people from COmanage. Setting do_database to False
     allows to test retrieving data from COmanage without writing to db
@@ -269,10 +269,10 @@ def comanage_load_all_people(do_database = True):
                 pass
 
         people_uuid = uuid4()
-        print(f"INFO: Adding active person {oidc_claim_sub=}, {name=}, {eppn=}, "
-              f"{email=} with GUID {people_uuid} to database")
 
         if do_database:
+            print(f"INFO: Adding active person {oidc_claim_sub=}, {name=}, {eppn=}, "
+                  f"{email=} with GUID {people_uuid} to database")
             dbperson = FabricPerson()
             dbperson.uuid = people_uuid
             dbperson.registered_on = datetime.datetime.utcnow()
@@ -285,6 +285,9 @@ def comanage_load_all_people(do_database = True):
             if ret != InsertOutcome.OK and ret != InsertOutcome.DUPLICATE_UPDATED:
                 print(f"ERROR: Unable to add or update entry for {dbperson.oidc_claim_sub} due to {ret}. ")
             session.commit()
+        else:
+            print(f"INFO: Skipping adding person {oidc_claim_sub=}, {name=}, {eppn=}, "
+                  f"{email=} with GUID {people_uuid} to database - do_database flag is False")
 
 
 def drop_recreate():
@@ -296,26 +299,31 @@ def drop_recreate():
     metadata.create_all(engine)
 
 
-def load_people_data(flag):
+def load_people_data(mode, drop_db_flag=False):
+    """
+    mode can be 'mock', 'ldap' or 'rest'
+    drop_db_flag is Boolean indicating if database needs to
+    be dropped and recreated. If same values are inserted, they
+    are updated without changing the GUID.
+    """
 
-    if flag == 'mock':
+    if drop_db_flag:
+        drop_recreate()
+
+    if mode == 'mock':
         print("INFO: Using mock data")
         people = mock_people
-    elif flag == 'ldap':
+    elif mode == 'ldap':
         print("INFO: Using LDAP to load people data")
         people = get_people_list()
-    elif flag == 'rest':
+    elif mode == 'rest':
         print("INFO: Using COmanage REST to load people data")
         # uses newer format and doesn't need the code below
-        drop_recreate()
-        comanage_load_all_people(False)
+        comanage_load_all_people()
         return
     else:
         # leave everything untouched
         return
-
-    # drop and recreate all tables
-    drop_recreate()
 
     session = Session()
 

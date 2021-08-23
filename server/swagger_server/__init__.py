@@ -47,6 +47,11 @@ elif app_params.get('user_data', None) == 'ldap':
 elif app_params.get('user_data', None) == 'rest':
     LOAD_USER_DATA = 'rest'
 
+USER_DB_DROP = False
+if app_params.get('user_db_drop', None) == 'true' or \
+        app_params.get('user_db_drop', None) == 'yes':
+    USER_DB_DROP = True
+
 QUERY_CHARACTER_MIN = 3
 if app_params.get('search_min_char_count', None) is not None:
     char_min = int(app_params['search_min_char_count'])
@@ -83,7 +88,7 @@ CO_REGISTRY_URL = app_params.get("co_registry_url")
 
 # Load user data
 log.info(f"Loading {LOAD_USER_DATA} user data")
-load_people_data(LOAD_USER_DATA)
+load_people_data(LOAD_USER_DATA, USER_DB_DROP)
 
 # Flask initialization for uwsgi (so it can find swagger_server:app)
 app = connexion.App(__name__, specification_dir='./swagger/')
