@@ -35,7 +35,7 @@ from ldap3 import Connection, Server, ALL
 
 from swagger_server.database import Session, ldap_params, COID, COAPI_USER, COAPI_KEY, CO_REGISTRY_URL
 from swagger_server.database.models import FabricPerson, AuthorID, InsertOutcome, insert_unique_person
-from swagger_server import __VERSION__, log
+from . import __VERSION__, log
 
 mock_people = [
     {
