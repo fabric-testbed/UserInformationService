@@ -1,3 +1,5 @@
+__VERSION__ = "1.0"
+
 import connexion
 import logging
 import datetime

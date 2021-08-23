@@ -35,6 +35,7 @@ from ldap3 import Connection, Server, ALL
 
 from swagger_server.database import Session, ldap_params, COID, COAPI_USER, COAPI_KEY, CO_REGISTRY_URL
 from swagger_server.database.models import FabricPerson, AuthorID, InsertOutcome, insert_unique_person
+from swagger_server import __VERSION__
 
 from . import metadata, engine
 
@@ -162,9 +163,9 @@ def get_people_list():
 
 def load_version_data():
     commands = (
-        """
+        f"""
         INSERT INTO version(id, version, gitsha1)
-        VALUES (1, '1.0.0', 'd943bb9fd09e00a2fc672df344a087e8dd89ffb0')
+        VALUES (1, {__VERSION__}, 'd943bb9fd09e00a2fc672df344a087e8dd89ffb0')
         ON CONFLICT (id)
         DO UPDATE SET version = Excluded.version, gitsha1 = Excluded.gitsha1
         """
