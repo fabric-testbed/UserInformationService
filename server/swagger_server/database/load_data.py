@@ -281,6 +281,8 @@ def comanage_load_all_people(do_database=True):
             dbperson.eppn = eppn
 
             ret = insert_unique_person(dbperson, session)
+            if ret == InsertOutcome.DUPLICATE_UPDATED:
+                log.info(f"Updated a pre-existing entry for {dbperson.oidc_claim_sub} ({dbperson.name=})")
             if ret != InsertOutcome.OK and ret != InsertOutcome.DUPLICATE_UPDATED:
                 log.error(f"Unable to add or update entry for {dbperson.oidc_claim_sub} due to {ret}. ")
             session.commit()
