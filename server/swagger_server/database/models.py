@@ -25,14 +25,11 @@
 # Author: Ilya Baldin (ibaldin@renci.org), Michael Stealey (stealey@renci.org)
 
 from sqlalchemy import Column, Integer, String, ForeignKey, Table, TIMESTAMP
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from enum import Enum, unique
 
-
-Base = declarative_base()
-metadata = Base.metadata
+from . import Base, metadata
 
 
 # secondary table for papers-to-authors many-to-many
@@ -154,7 +151,8 @@ class PreferenceType(Enum):
 class InsertOutcome(Enum):
     OK = 0
     UNIQUE_FIELD_MISSING = 1
-    DUPLICATE_FOUND = 2
+    DUPLICATE_UPDATED = 2
+    MULTIPLE_DUPLICATES_FOUND = 3
 
 
 def insert_unique_person(person: FabricPerson, session) -> InsertOutcome:
@@ -181,9 +179,9 @@ def insert_unique_person(person: FabricPerson, session) -> InsertOutcome:
             if getattr(dbperson, attr) != getattr(person, attr):
                 setattr(dbperson, attr, getattr(person, attr))
         # commit should be called later
-        return InsertOutcome.DUPLICATE_FOUND
+        return InsertOutcome.DUPLICATE_UPDATED
     if len(query_result) > 1:
-        return InsertOutcome.DUPLICATE_FOUND
+        return InsertOutcome.MULTIPLE_DUPLICATES_FOUND
 
     session.add(person)
 

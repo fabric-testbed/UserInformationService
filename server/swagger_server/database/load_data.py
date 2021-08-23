@@ -23,16 +23,19 @@
 #
 #
 # Author: Ilya Baldin (ibaldin@renci.org) Michael Stealey (stealey@renci.org)
+from typing import List, Any
 from uuid import uuid4
 import datetime
 import re
 
 import psycopg2
+import requests
+from requests.auth import HTTPBasicAuth
 from ldap3 import Connection, Server, ALL
 
-from swagger_server.database import Session, ldap_params
+from swagger_server.database import Session, ldap_params, COID, COAPI_USER, COAPI_KEY, CO_REGISTRY_URL
 from swagger_server.database.models import FabricPerson, AuthorID, InsertOutcome, insert_unique_person
-
+from . import __VERSION__, log
 
 mock_people = [
     {
@@ -105,9 +108,9 @@ def run_sql_commands(commands):
         else:
             session.execute(commands)
         session.commit()
-        print("[INFO] data loaded successfully!")
+        log.info("Data loaded successfully!")
     except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
+        log.error(error)
     finally:
         if session is not None:
             session.close()
@@ -142,14 +145,14 @@ def get_people_list():
             obj = {}
             for attr in ATTRIBUTES:
                 if attr == 'isMemberOf':
-                    print(str(attr) + ": " + str(entry[str(attr)]).strip("'"))
+                    log.debug(str(attr) + ": " + str(entry[str(attr)]).strip("'"))
                     groups = []
                     for group in entry[attr]:
                         if re.search("(CO:COU:(?:\w+-{1})+\w+:members:active)", str(group)):
                             groups.append(str(group))
                     obj[str(attr)] = groups
                 else:
-                    print(str(attr) + ": " + str(entry[str(attr)]))
+                    log.debug(str(attr) + ": " + str(entry[str(attr)]))
                     obj[str(attr)] = str(entry[str(attr)])
             people.append(obj)
     conn.unbind()
@@ -158,9 +161,9 @@ def get_people_list():
 
 def load_version_data():
     commands = (
-        """
+        f"""
         INSERT INTO version(id, version, gitsha1)
-        VALUES (1, '1.0.0', 'd943bb9fd09e00a2fc672df344a087e8dd89ffb0')
+        VALUES (1, {__VERSION__}, 'd943bb9fd09e00a2fc672df344a087e8dd89ffb0')
         ON CONFLICT (id)
         DO UPDATE SET version = Excluded.version, gitsha1 = Excluded.gitsha1
         """
@@ -168,20 +171,151 @@ def load_version_data():
     run_sql_commands(commands)
 
 
-def load_people_data(flag):
-
-    if flag == 'mock':
-        people = mock_people
-    elif flag == 'ldap':
-        people = get_people_list()
+def comanage_load_all_people(do_database=True):
+    """
+    Load people from COmanage. Setting do_database to False
+    allows to test retrieving data from COmanage without writing to db
+    """
+    #
+    # Get a list of active OIDC subs
+    #
+    if do_database:
+        session = Session()
     else:
+        session = None
+
+    params = {'coid': COID}
+    response = requests.get(url=CO_REGISTRY_URL + 'co_people.json',
+                            params=params,
+                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    if response.status_code == requests.codes.ok:
+        people_data = response.json()
+        co_people = people_data['CoPeople'] if people_data.get('CoPeople', None) is not None else list()
+        # produce a list of tuples <oidc sub, coperson id> for each person
+        person_ids = list(map(lambda x: (x['ActorIdentifier'], x['Id']),
+                             filter(lambda x: x['Status'] == 'Active',
+                                    co_people)))
+    else:
+        log.error(f'Unable to get people from COmanage due to {response=}')
+        return
+    for ids in person_ids:
+        # ids[0] oidc claim sub (url)
+        # ids[1] copersonid (numeric)
+        # get the person's particulars and enter them in DB issuing a fresh GUID
+
+        # identifiers
+        response = requests.get(
+            url=CO_REGISTRY_URL + 'identifiers.json',
+            params={'copersonid': ids[1]},
+            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+        oidc_claim_sub = None
+        eppn = None
+        if response.status_code == requests.codes.ok:
+            data = response.json()
+            for identifier in data['Identifiers']:
+                if identifier['Type'] == 'oidcsub':
+                    oidc_claim_sub = identifier['Identifier']
+                    if oidc_claim_sub != ids[0]:
+                        log.warn(f"OIDC claim sub received from identifiers {oidc_claim_sub=} does not match one "
+                                 f"received from people {ids[0]=}")
+                    break
+                if identifier['Type'] == 'eppn':
+                    eppn = identifier['Identifier']
+        else:
+            log.error(f"Unable to get identifiers from COmanage for {ids[0]}, {ids[1]} due to {response=}, "
+                      f"person will be skipped")
+            continue
+        if oidc_claim_sub is None:
+            oidc_claim_sub = ids[0]
+
+        # names
+        response = requests.get(
+            url=CO_REGISTRY_URL + 'names.json',
+            params={'copersonid': ids[1], 'coid': COID},
+            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+        if response.status_code == requests.codes.ok:
+            response_obj = response.json()
+            names_list = response_obj.get('Names', None)
+            if names_list is None or len(names_list) == 0:
+                continue
+            # use the first name entry
+            names = names_list[0]
+            name = " ".join([names.get('Given', ""),
+                             names.get('Middle', ""),
+                             names.get('Family', ""),
+                             names.get('Suffix', "")])
+            if len(name) == 3:
+                name = 'No Name Given'
+
+            # strip extra spaces
+            name = re.sub(' +', ' ', name)
+        else:
+            log.error(f"Unable to get name and/or email from COmanage for {ids[0]}, {ids[1]} due to {response=},"
+                      f"person will be skipped")
+            continue
+
+        # email
+        email = None
+        response = requests.get(
+            url=CO_REGISTRY_URL + 'email_addresses.json',
+            params={'copersonid': ids[1], 'coid': COID},
+            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+        if response.status_code == requests.codes.ok:
+            response_obj = response.json()
+            try:
+                email = response_obj['EmailAddresses'][0]['Mail']
+            except KeyError:
+                pass
+
+        people_uuid = uuid4()
+
+        if do_database:
+            log.info(f"Adding active person {oidc_claim_sub=}, {name=}, {eppn=}, "
+                  f"{email=} with GUID {people_uuid} to database")
+            dbperson = FabricPerson()
+            dbperson.uuid = people_uuid
+            dbperson.registered_on = datetime.datetime.utcnow()
+            dbperson.oidc_claim_sub = oidc_claim_sub
+            dbperson.email = email
+            dbperson.name = name
+            dbperson.eppn = eppn
+
+            ret = insert_unique_person(dbperson, session)
+            if ret == InsertOutcome.DUPLICATE_UPDATED:
+                log.info(f"Updated a pre-existing entry for {dbperson.oidc_claim_sub} ({dbperson.name=})")
+            if ret != InsertOutcome.OK and ret != InsertOutcome.DUPLICATE_UPDATED:
+                log.error(f"Unable to add or update entry for {dbperson.oidc_claim_sub} due to {ret}. ")
+            session.commit()
+        else:
+            log.info(f"Skipping adding person {oidc_claim_sub=}, {name=}, {eppn=}, "
+                     f"{email=} with GUID {people_uuid} to database - do_database flag is False")
+
+
+def load_people_data(mode):
+    """
+    mode can be 'mock', 'ldap' or 'rest'
+    """
+
+    if mode == 'mock':
+        log.info("Using mock data")
+        people = mock_people
+    elif mode == 'ldap':
+        log.info("Using LDAP to load people data")
+        people = get_people_list()
+    elif mode == 'rest':
+        log.info("Using COmanage REST to load people data")
+        # uses newer format and doesn't need the code below
+        comanage_load_all_people()
+        return
+    else:
+        # leave everything untouched
         return
 
     session = Session()
 
     for person in people:
         people_uuid = uuid4()
-        print(f"Adding {person.get('cn')} with GUID {people_uuid} to database")
+        log.info(f"Adding {person.get('cn')} with GUID {people_uuid} to database")
         dbperson = FabricPerson()
         dbperson.uuid = people_uuid
         dbperson.registered_on = datetime.datetime.utcnow()
@@ -207,9 +341,8 @@ def load_people_data(flag):
                                     alt_id_value=person.get('orcid')))
         dbperson.alt_ids = alt_ids
         ret = insert_unique_person(dbperson, session)
-        if ret != InsertOutcome.OK:
-            print(f"Unable to add entry for {dbperson.oidc_claim_sub} due to {ret}. "
-                  f"For a pre-existing entry, some fields (name, email, eppn) may have been updated")
+        if ret != InsertOutcome.OK and ret != InsertOutcome.DUPLICATE_UPDATED:
+            log.error(f"Unable to add entry for {dbperson.oidc_claim_sub} due to {ret}. ")
     session.commit()
 
 

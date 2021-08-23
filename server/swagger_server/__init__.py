@@ -1,30 +1,17 @@
 import connexion
-import os
-import logging
 import datetime
 
 from swagger_server import encoder
 
 from fss_utils.jwt_validate import ValidateCode, JWTValidator
 
-from swagger_server.database.models import metadata
+from swagger_server.database import metadata
 from swagger_server.database import DISABLE_DATABASE, engine
 from swagger_server.database.load_data import load_people_data, load_version_data
 
 from .config import config_from_file, config_from_env
 
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger("User Information Service")
-
-# for testing e.g. comanage code we don't need the database running
-if not DISABLE_DATABASE:
-    # create tables (should be idempotent)
-    log.info("Creating database tables")
-    metadata.create_all(engine)
-
-    # load version data
-    log.info("Loading version table")
-    load_version_data()
+from .database import __VERSION__, log
 
 # load app configuration parameters
 APP_PARAM_PREFIX = "UIS"
@@ -45,8 +32,13 @@ if app_params.get('user_data', None) == 'mock':
     LOAD_USER_DATA = 'mock'
 elif app_params.get('user_data', None) == 'ldap':
     LOAD_USER_DATA = 'ldap'
-log.info(f"Loading {LOAD_USER_DATA} user data")
-load_people_data(LOAD_USER_DATA)
+elif app_params.get('user_data', None) == 'rest':
+    LOAD_USER_DATA = 'rest'
+
+USER_DB_DROP = False
+if app_params.get('user_db_drop', None) == 'true' or \
+        app_params.get('user_db_drop', None) == 'yes':
+    USER_DB_DROP = True
 
 QUERY_CHARACTER_MIN = 3
 if app_params.get('search_min_char_count', None) is not None:
@@ -81,6 +73,23 @@ COID = app_params.get("coid")
 CO_ACTIVE_USERS_COU = app_params.get("co_active_users_cou")
 # registry URL
 CO_REGISTRY_URL = app_params.get("co_registry_url")
+
+# for testing e.g. comanage code we don't need the database running
+if not DISABLE_DATABASE:
+    if USER_DB_DROP:
+        log.info("Dropping all database tables")
+        metadata.drop_all(engine)
+    # create tables (should be idempotent)
+    log.info("Creating database tables")
+    metadata.create_all(engine)
+
+    # load version data
+    log.info("Loading version table")
+    load_version_data()
+
+# Load user data
+log.info(f"Loading {LOAD_USER_DATA} user data")
+load_people_data(LOAD_USER_DATA)
 
 # Flask initialization for uwsgi (so it can find swagger_server:app)
 app = connexion.App(__name__, specification_dir='./swagger/')

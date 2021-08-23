@@ -162,7 +162,7 @@ Production deployment is meant to mimic the 'Vouch Proxy' local docker deploymen
 proper secrets, certs etc. You must edit the following files to support a production deployment:
 - [nginx/default.conf](vouch/default.conf) - API routing
 - [vouch/config_template](vouch/config_template) - Vouch Proxy configuration discussed below
-- [env_template](env_template) - environment settings that determine the behavior of docker-compose
+- [env_template](env_template) - environment settings that determine the behavior of docker-compose. NOTE: Values are case sensitive, although names are not. 
 
 To configure Vouch Proxy, copy [vouch/config_template](vouch/config_template) to `vouch/config`, edit at least the 
 following parameters:
@@ -177,6 +177,22 @@ e.g. Project Registry
 
 More details on configuring the service with VouchProxy and Nginx for production is contained with 
 [Project Registry](https://github.com/fabric-testbed/project-registry) - a similar System Service.
+
+## Populating database
+
+`UIS_USER_DATA` variable in the environment file determines where data comes from. The variable can take one of the
+following values:
+- `none` - no data is preloaded 
+- `mock` - mock data is loaded. it is internal to the code and should only be used in alpha/test deployments.
+- `ldap` - use LDAP interface to COmanage to load the data. You must also specify values of all `LDAP_XXX` variables.
+  - Note that this option will eventually be deprecated in favor of `rest`. For now both can be used in parallel
+- `rest` - use COmanage REST API to load the data. Uses `UIS_COXXXX` variables to configure the behavior.  
+
+**Note**: an additional variable `UIS_USER_DB_DROP` set to either `true` or `false` controls whether databases
+should be dropped and recreated upon restart. Use with caution. Normally if writing on top of an existing database if
+an entry for a person exists, it is simply updated with name/email/eppn attributes and the system moves on, new entries 
+are added. When using this, be sure to set it back to `false` after a restart, lest you forget it and next time
+UIS is restarted for some reason, database will be dropped again. 
 
 # References
 
