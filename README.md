@@ -188,7 +188,11 @@ following values:
   - Note that this option will eventually be deprecated in favor of `rest`. For now both can be used in parallel
 - `rest` - use COmanage REST API to load the data. Uses `UIS_COXXXX` variables to configure the behavior.  
 
-**Note**: tables are dropped and recreated if any option other than `none` is used - loss of data will result!
+**Note**: an additional variable `UIS_USER_DB_DROP` set to either `true` or `false` controls whether databases
+should be dropped and recreated upon restart. Use with caution. Normally if writing on top of an existing database if
+an entry for a person exists, it is simply updated with name/email/eppn attributes and the system moves on, new entries 
+are added. When using this, be sure to set it back to `false` after a restart, lest you forget it and next time
+UIS is restarted for some reason, database will be dropped again. 
 
 # References
 
