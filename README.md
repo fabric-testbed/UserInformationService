@@ -162,7 +162,7 @@ Production deployment is meant to mimic the 'Vouch Proxy' local docker deploymen
 proper secrets, certs etc. You must edit the following files to support a production deployment:
 - [nginx/default.conf](vouch/default.conf) - API routing
 - [vouch/config_template](vouch/config_template) - Vouch Proxy configuration discussed below
-- [env_template](env_template) - environment settings that determine the behavior of docker-compose
+- [env_template](env_template) - environment settings that determine the behavior of docker-compose. NOTE: Values are case sensitive, although names are not. 
 
 To configure Vouch Proxy, copy [vouch/config_template](vouch/config_template) to `vouch/config`, edit at least the 
 following parameters:
