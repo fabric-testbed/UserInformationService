@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
+__VERSION__ = "1.0"
+
+import logging
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 from ..config import config_from_file, config_from_env
+
+logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger("User Information Service")
 
 # Setup database engine
 DB_PARAM_PREFIX = "POSTGRES"

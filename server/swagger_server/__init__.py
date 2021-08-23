@@ -1,7 +1,4 @@
-__VERSION__ = "1.0"
-
 import connexion
-import logging
 import datetime
 
 from swagger_server import encoder
@@ -14,8 +11,7 @@ from swagger_server.database.load_data import load_people_data, load_version_dat
 
 from .config import config_from_file, config_from_env
 
-logging.basicConfig(level=logging.DEBUG)
-log = logging.getLogger("User Information Service")
+from .database import __VERSION__, log
 
 # load app configuration parameters
 APP_PARAM_PREFIX = "UIS"
@@ -93,7 +89,7 @@ if not DISABLE_DATABASE:
 
 # Load user data
 log.info(f"Loading {LOAD_USER_DATA} user data")
-load_people_data(LOAD_USER_DATA, USER_DB_DROP)
+load_people_data(LOAD_USER_DATA)
 
 # Flask initialization for uwsgi (so it can find swagger_server:app)
 app = connexion.App(__name__, specification_dir='./swagger/')
