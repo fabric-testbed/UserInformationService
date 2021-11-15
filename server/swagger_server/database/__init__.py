@@ -7,6 +7,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
+from comanage_api import ComanageApi
+
 from ..config import config_from_file, config_from_env
 
 logging.basicConfig(level=logging.DEBUG)
@@ -28,6 +30,17 @@ COAPI_KEY = comanage_params.get("coapi_key")
 COID = comanage_params.get("coid")
 CO_ACTIVE_USERS_COU = comanage_params.get("co_active_users_cou")
 CO_REGISTRY_URL = comanage_params.get("co_registry_url")
+CO_NAME = comanage_params.get("co_name")
+CO_SSH_AUTHENTICATOR_ID = comanage_params.get("co_ssh_authenticator_id")
+
+co_api = ComanageApi(
+    co_api_url=CO_REGISTRY_URL,
+    co_api_user=COAPI_USER,
+    co_api_pass=COAPI_KEY,
+    co_api_org_id=COID,
+    co_api_org_name=CO_NAME,
+    co_ssh_key_authenticator_id=CO_SSH_AUTHENTICATOR_ID
+)
 
 DISABLE_DATABASE = False
 if db_params.get('disable_database', None) == 'true':

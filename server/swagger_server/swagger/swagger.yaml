@@ -10,11 +10,11 @@ info:
   license:
     name: MIT
     url: https://opensource.org/licenses/MIT
-  version: 1.0.0
+  version: 1.1.0
 servers:
 - url: http://127.0.0.1:5000/
   description: local development
-- url: https://virtserver.swaggerhub.com/fabric-testbed/user-information-service/1.0.0
+- url: https://virtserver.swaggerhub.com/fabric-testbed/user-information-service/1.1.0
   description: SwaggerHub API Auto Mocking
 tags:
 - name: people
@@ -124,10 +124,10 @@ paths:
     get:
       tags:
       - people
-      summary: Details about self from OIDC Claim sub provided in ID token (open only
-        to self)
+      summary: Details about self from OIDC Claim sub provided in ID token; Creates
+        new entry; (open only to self)
       description: Details about self based on key OIDC Claim sub contained in ID
-        token
+        token; Creates new entry
       operationId: people_whoami_get
       responses:
         "200":
@@ -184,10 +184,10 @@ paths:
     get:
       tags:
       - preferences
-      summary: get user preferences of specific type (settings, permissions or interests;
-        open only to self)
-      description: User preferences (returns sane defaults if user valid, but preferences
-        not available)
+      summary: "get user preferences of specific type (settings, permissions or interests;\
+        \ open only to self)"
+      description: "User preferences (returns sane defaults if user valid, but preferences\
+        \ not available)"
       operationId: preferences_preftype_uuid_get
       parameters:
       - name: preftype
@@ -304,7 +304,7 @@ paths:
     get:
       tags:
       - publications
-      summary: get user's author IDs (Scopus, Orcid etc.; open only to self)
+      summary: "get user's author IDs (Scopus, Orcid etc.; open only to self)"
       operationId: authorids_uuid_get
       parameters:
       - name: uuid
@@ -417,6 +417,273 @@ paths:
         "5XX":
           description: Unexpected error
       x-openapi-router-controller: swagger_server.controllers.publications_controller
+  /sshkeys/{keytype}/{uuid}:
+    get:
+      tags:
+      - sshkeys
+      summary: Get a list of active/non-expired keys of specified type (open to any
+        valid user)
+      operationId: sshkeys_keytype_uuid_get
+      parameters:
+      - name: keytype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/SshKeyType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SshKeyShort'
+                x-content-type: application/json
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
+    put:
+      tags:
+      - sshkeys
+      summary: Generate a new SSH key of specified type. Return both public and private
+        portions. key_uuid field in SshKeyShort is ignored. (open only to self)
+      operationId: sshkeys_keytype_uuid_put
+      parameters:
+      - name: keytype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/SshKeyType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: comment
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      - name: description
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SshKeyPair'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
+    post:
+      tags:
+      - sshkeys
+      summary: Add a user-provided ssh public key of specified type. key_uuid field
+        in SshKeyShort is ignored (open only to self)
+      operationId: sshkeys_keytype_uuid_post
+      parameters:
+      - name: keytype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/SshKeyType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: public_openssh
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                x-content-type: application/json
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
+  /sshkeys/{keytype}/{uuid}/{keyid}:
+    get:
+      tags:
+      - sshkeys
+      summary: "get metadata, including expiration date for this key based on key\
+        \ UUID (open only to self)"
+      operationId: sshkeys_keytype_uuid_keyid_get
+      parameters:
+      - name: keytype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/SshKeyType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: keyid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SshKeyLong'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Key not found
+        "5XX":
+          description: Unexpected error
+      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
+    delete:
+      tags:
+      - sshkeys
+      summary: Delete a specified key based on key UUID (open only to self)
+      operationId: sshkeys_keytype_uuid_keyid_delete
+      parameters:
+      - name: keytype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/SshKeyType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: keyid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                x-content-type: application/json
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
+      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
+  /keylist:
+    get:
+      tags:
+      - sshkeys
+      summary: "Get a list of keys that were created, deactivated or expired since\
+        \ specified date in UTC (open to Bastion host)"
+      operationId: keylist_get
+      parameters:
+      - name: secret
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      - name: since_date
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SshKeyBastion'
+                x-content-type: application/json
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
 components:
   schemas:
     Version:
@@ -458,6 +725,8 @@ components:
           type: string
         oidc_claim_sub:
           type: string
+        bastion_login:
+          type: string
         prefs:
           $ref: '#/components/schemas/Preferences'
       example:
@@ -465,39 +734,12 @@ components:
         name: name
         uuid: uuid
         oidc_claim_sub: oidc_claim_sub
+        bastion_login: bastion_login
         email: email
         prefs:
           settings: {}
           permissions: {}
           interests: {}
-    Publication_short:
-      properties:
-        title:
-          type: string
-        authors:
-          type: string
-        year:
-          type: integer
-        doi:
-          type: string
-    Publication_full:
-      properties:
-        title:
-          type: string
-        authors:
-          type: string
-        year:
-          type: integer
-        month:
-          type: integer
-        day:
-          type: integer
-        venue:
-          type: string
-        publisher:
-          type: string
-        doi:
-          type: string
     Preferences:
       properties:
         settings:
@@ -510,26 +752,98 @@ components:
         settings: {}
         permissions: {}
         interests: {}
-    PortalKey:
+    SshKeyPair:
       properties:
-        pubkey:
+        private_openssh:
           type: string
-        privkey:
+        public_openssh:
           type: string
-        createdOn:
-          type: string
-        expiresOn:
-          type: string
-        project:
-          type: string
-    UserKey:
+      description: SSH Key Pair
+      example:
+        private_openssh: private_openssh
+        public_openssh: public_openssh
+    SshKeyShort:
       properties:
-        pubkey:
+        key_uuid:
           type: string
-        createdOn:
+        public_key:
           type: string
-        keytag:
+        name:
           type: string
+        comment:
+          type: string
+        description:
+          type: string
+        fingerprint:
+          type: string
+      description: Public SSH key short version
+      example:
+        public_key: public_key
+        key_uuid: key_uuid
+        name: name
+        fingerprint: fingerprint
+        description: description
+        comment: comment
+    SshKeyLong:
+      properties:
+        key_uuid:
+          type: string
+        public_key:
+          type: string
+        name:
+          type: string
+        comment:
+          type: string
+        description:
+          type: string
+        fingerprint:
+          type: string
+        created_on:
+          type: string
+        expires_on:
+          type: string
+        deactivated_on:
+          type: string
+        deactivation_reason:
+          type: string
+      description: Public SSH key long version
+      example:
+        public_key: public_key
+        deactivation_reason: deactivation_reason
+        key_uuid: key_uuid
+        created_on: created_on
+        expires_on: expires_on
+        name: name
+        fingerprint: fingerprint
+        description: description
+        comment: comment
+        deactivated_on: deactivated_on
+    SshKeyBastion:
+      properties:
+        public_openssh:
+          type: string
+        login:
+          type: string
+        status:
+          $ref: '#/components/schemas/SshKeyStatus'
+      description: SSH key info for bastion host
+      example:
+        public_openssh: public_openssh
+        login: login
+        status: deactivated
+    SshKeyType:
+      type: string
+      description: Type of SSH key
+      enum:
+      - sliver
+      - bastion
+    SshKeyStatus:
+      type: string
+      description: Status of SSH key
+      enum:
+      - deactivated
+      - expired
+      - active
     AuthorIdType:
       type: string
       description: Different possible types of author IDs

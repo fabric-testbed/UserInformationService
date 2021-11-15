@@ -33,7 +33,9 @@ import requests
 from requests.auth import HTTPBasicAuth
 from ldap3 import Connection, Server, ALL
 
-from swagger_server.database import Session, ldap_params, COID, COAPI_USER, COAPI_KEY, CO_REGISTRY_URL
+from fss_utils.sshkey import FABRICSSHKey
+
+from swagger_server.database import Session, ldap_params, COID, COAPI_USER, COAPI_KEY, CO_REGISTRY_URL, co_api
 from swagger_server.database.models import FabricPerson, AuthorID, InsertOutcome, insert_unique_person
 from . import __VERSION__, log
 
@@ -267,11 +269,13 @@ def comanage_load_all_people(do_database=True):
             except KeyError:
                 pass
 
+        bastion_login = FABRICSSHKey.bastion_login(oidc_claim_sub, email)
+
         people_uuid = uuid4()
 
         if do_database:
             log.info(f"Adding active person {oidc_claim_sub=}, {name=}, {eppn=}, "
-                  f"{email=} with GUID {people_uuid} to database")
+                  f"{email=} with GUID {people_uuid} and bastion login {bastion_login} to database")
             dbperson = FabricPerson()
             dbperson.uuid = people_uuid
             dbperson.registered_on = datetime.datetime.utcnow()
@@ -279,6 +283,7 @@ def comanage_load_all_people(do_database=True):
             dbperson.email = email
             dbperson.name = name
             dbperson.eppn = eppn
+            dbperson.bastion_login = bastion_login
 
             ret = insert_unique_person(dbperson, session)
             if ret == InsertOutcome.DUPLICATE_UPDATED:
@@ -288,7 +293,8 @@ def comanage_load_all_people(do_database=True):
             session.commit()
         else:
             log.info(f"Skipping adding person {oidc_claim_sub=}, {name=}, {eppn=}, "
-                     f"{email=} with GUID {people_uuid} to database - do_database flag is False")
+                     f"{email=} with GUID {people_uuid} and bastion login {bastion_login} to database - "
+                     f"do_database flag is False")
 
 
 def load_people_data(mode):

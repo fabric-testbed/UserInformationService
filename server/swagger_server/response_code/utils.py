@@ -30,17 +30,19 @@ import uuid
 import json
 import re
 import jwt
-import datetime
+from datetime import datetime, timezone
 import requests
 from requests.auth import HTTPBasicAuth
 
 from fss_utils.jwt_manager import ValidateCode
+from fss_utils.sshkey import FABRICSSHKey
+
 from swagger_server.models import Preferences, PeopleShort
 from swagger_server.models.people_long import PeopleLong
 from swagger_server.database import Session
 from swagger_server.database.models import FabricPerson, InsertOutcome, insert_unique_person
 from swagger_server import SKIP_CILOGON_VALIDATION, COAPI_KEY, COAPI_USER, COID, \
-    CO_REGISTRY_URL, CO_ACTIVE_USERS_COU, log
+    CO_REGISTRY_URL, CO_ACTIVE_USERS_COU, log, co_api
 from swagger_server import jwt_validator
 
 
@@ -263,10 +265,12 @@ def create_new_fabric_person_from_token(headers, check_unique=False):
         dbperson = FabricPerson()
         dbperson.uuid = uuid.uuid4()
         log.info(f"Generating new entry for user {decoded.get(SUB_CLAIM)} with UUID {dbperson.uuid}")
-        dbperson.registered_on = datetime.datetime.utcnow()
+        dbperson.registered_on = datetime.now(timezone.utc)
         dbperson.oidc_claim_sub = decoded.get(SUB_CLAIM)
         dbperson.name = decoded.get(NAME_CLAIM)
         dbperson.email = decoded.get(EMAIL_CLAIM)
+
+        dbperson.bastion_login = FABRICSSHKey.bastion_login(dbperson.oidc_claim_sub, dbperson.email)
         if check_unique:
             ret = insert_unique_person(dbperson, session)
             if ret == InsertOutcome.DUPLICATE_UPDATED:
@@ -546,23 +550,3 @@ def comanage_get_person_identifier(co_person_id, identifier_type) -> str or None
     else:
         log.error(f'Received code {response.status_code} when calling COmanage identifiers.json')
     return person_id
-
-
-def comanage_get_all_people() -> List[Any]:
-    """
-    Get a full list of active people's OIDC subs  for e.g. reinitializing the database. Returns
-    empty list in case of error (logging the error)
-    """
-    params = {'coid': COID}
-    response = requests.get(url=CO_REGISTRY_URL + 'co_people.json',
-                            params=params,
-                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
-    if response.status_code == requests.codes.ok:
-        data = response.json()
-        people_data = response.json()
-        co_people = people_data['CoPeople'] if people_data.get('CoPeople', None) is not None else list()
-        res = list(map(lambda x: x['ActorIdentifier'], filter(lambda x: x['Status'] == 'Active', co_people)))
-        return res
-    else:
-        log.error(f'Received code {response.status_code} when calling COmanage co_people.json')
-        return list()
