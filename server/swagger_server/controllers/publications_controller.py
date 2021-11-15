@@ -1,7 +1,10 @@
 import connexion
 import six
 
+from swagger_server.models.author_id import AuthorId  # noqa: E501
+from swagger_server.models.author_id_type import AuthorIdType  # noqa: E501
 import swagger_server.response_code.publications_controller as pc
+from swagger_server import util
 
 
 def authorids_idtype_uuid_get(idtype, uuid):  # noqa: E501
@@ -17,7 +20,7 @@ def authorids_idtype_uuid_get(idtype, uuid):  # noqa: E501
     :rtype: str
     """
     if connexion.request.is_json:
-        idtype = connexion.request.from_dict(connexion.request.get_json())  # noqa: E501
+        idtype = AuthorIdType.from_dict(connexion.request.get_json())  # noqa: E501
     return pc.authorids_idtype_uuid_get(idtype, uuid)
 
 
@@ -36,7 +39,7 @@ def authorids_idtype_uuid_put(idtype, uuid, idval):  # noqa: E501
     :rtype: str
     """
     if connexion.request.is_json:
-        idtype = connexion.request.from_dict(connexion.request.get_json())  # noqa: E501
+        idtype = AuthorIdType.from_dict(connexion.request.get_json())  # noqa: E501
     return pc.authorids_idtype_uuid_put(idtype, uuid, idval)
 
 

@@ -2,6 +2,8 @@ import connexion
 import six
 
 from swagger_server.models.people_long import PeopleLong  # noqa: E501
+from swagger_server.models.people_short import PeopleShort  # noqa: E501
+from swagger_server import util
 import swagger_server.response_code.people_controller as pc
 
 
@@ -32,9 +34,9 @@ def people_uuid_get(uuid):  # noqa: E501
 
 
 def people_whoami_get():  # noqa: E501
-    """Details about self from OIDC Claim sub provided in ID token (open only to self)
+    """Details about self from OIDC Claim sub provided in ID token; Creates new entry; (open only to self)
 
-    Details about self based on key OIDC Claim sub contained in ID token # noqa: E501
+    Details about self based on key OIDC Claim sub contained in ID token; Creates new entry # noqa: E501
 
 
     :rtype: List[PeopleLong]

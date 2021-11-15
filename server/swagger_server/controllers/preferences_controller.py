@@ -1,7 +1,9 @@
 import connexion
 import six
 
+from swagger_server.models.preference_type import PreferenceType  # noqa: E501
 from swagger_server.models.preferences import Preferences  # noqa: E501
+from swagger_server import util
 import swagger_server.response_code.preferences_controller as pc
 
 
@@ -18,7 +20,7 @@ def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
     :rtype: object
     """
     if connexion.request.is_json:
-        preftype = connexion.request.from_dict(connexion.request.get_json())  # noqa: E501
+        preftype = PreferenceType.from_dict(connexion.request.get_json())  # noqa: E501
     return pc.preferences_preftype_uuid_get(preftype, uuid)
 
 
@@ -37,7 +39,7 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences):  # noqa: E501
     :rtype: str
     """
     if connexion.request.is_json:
-        preftype = connexion.request.from_dict(connexion.request.get_json())  # noqa: E501
+        preftype = PreferenceType.from_dict(connexion.request.get_json())  # noqa: E501
     return pc.preferences_preftype_uuid_put(uuid, preftype, preferences)
 
 
