@@ -8,6 +8,7 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=uiservice
 PGDATA=/var/lib/postgresql/data/pgdata
 POSTGRES_DB=postgres
+POSTGRES_POOL_SIZE=10
 
 # COmanage LDAP configuration (only needed if using 'ldap' option for UIS_USER_DATA)
 LDAP_HOST=localhost

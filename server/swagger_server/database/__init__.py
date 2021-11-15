@@ -52,7 +52,13 @@ POSTGRES_ENGINE = 'postgres://' + db_params['user'] + ':' + db_params['password'
                   + '@' + db_params['host'] + ':' + db_params['port'] \
                   + '/' + db_params['db']
 
-engine = create_engine(POSTGRES_ENGINE)
+DB_POOL_SIZE = int(db_params("pool_size"))
+# set overflow 10% of pool size
+DB_OVERFLOW = int(DB_POOL_SIZE * 0.1)
+if DB_OVERFLOW == 0:
+    DB_OVERFLOW = 10
+
+engine = create_engine(POSTGRES_ENGINE, pool_size=DB_POOL_SIZE, max_overflow=DB_OVERFLOW)
 Session = sessionmaker(bind=engine)
 Base = declarative_base()
 metadata = Base.metadata

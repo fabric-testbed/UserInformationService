@@ -252,3 +252,4 @@ def uuid_oidc_claim_sub_get(oidc_claim_sub):
     finally:
         if session is not None:
             session.close()
+
