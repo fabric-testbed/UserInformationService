@@ -186,23 +186,26 @@ def people_uuid_get(uuid):  # noqa: E501
                              xerror="OIDC Claim Sub doesnt match UUID")
 
     session = Session()
-    query = session.query(FabricPerson).filter(FabricPerson.uuid == uuid)
+    try:
+        query = session.query(FabricPerson).filter(FabricPerson.uuid == uuid)
 
-    query_result = query.all()
+        query_result = query.all()
 
-    if len(query_result) == 0:
-        log.warn(f'Person UUID {uuid} not found in /people/uuid')
-        return cors_response(HTTPStatus.NOT_FOUND,
-                             xerror='Person UUID not found: {0}'.format(str(uuid)))
+        if len(query_result) == 0:
+            log.warn(f'Person UUID {uuid} not found in /people/uuid')
+            return cors_response(HTTPStatus.NOT_FOUND,
+                                 xerror='Person UUID not found: {0}'.format(str(uuid)))
 
-    if len(query_result) > 1:
-        log.warn(f'Duplicate UUID {uuid} found in /people/uuid')
-        return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
-                             xerror='Duplicate UUID Found: {0}'.format(str(uuid)))
+        if len(query_result) > 1:
+            log.warn(f'Duplicate UUID {uuid} found in /people/uuid')
+            return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                 xerror='Duplicate UUID Found: {0}'.format(str(uuid)))
 
-    person = query_result[0]
+        person = query_result[0]
 
-    return utils.fill_people_long_from_person(person)
+        return utils.fill_people_long_from_person(person)
+    finally:
+        session.close()
 
 
 def uuid_oidc_claim_sub_get(oidc_claim_sub):
@@ -216,29 +219,32 @@ def uuid_oidc_claim_sub_get(oidc_claim_sub):
     oidc_claim_sub = str(oidc_claim_sub).strip()
 
     session = Session()
-    status, active_flag = utils.check_user_active(session, request.headers)
-    if status != 200:
-        log.error(f'Error {status} contacting COmanage in /uuid/oidc_claim_sub')
-        return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
-                             xerror=f'Error {status} contacting COmanage')
-
-    if not active_flag:
-        log.warn(f'User is not an active user in /uuid/oidc_claim_sub')
-        return cors_response(HTTPStatus.FORBIDDEN,
-                             xerror='User not an active user')
-
-    query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
-    query_result = query.all()
-
-    if len(query_result) == 0:
-        log.warn(f'Person with OIDC Claim sub {str(oidc_claim_sub)} in /uuid/oidc_claim_sub not found in database')
-        return cors_response(HTTPStatus.NOT_FOUND,
-                             xerror='Person with OIDC claim sub not found: {0}'.format(oidc_claim_sub))
-    else:
-        if len(query_result) > 1:
-            log.warn(f'Duplicate OIDC Claim {str(oidc_claim_sub)} found in the database in /uuid/oidc_claim_sub')
+    try:
+        status, active_flag = utils.check_user_active(session, request.headers)
+        if status != 200:
+            log.error(f'Error {status} contacting COmanage in /uuid/oidc_claim_sub')
             return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
-                                 xerror='Duplicate OIDC Claim Found: {0}'.format(oidc_claim_sub))
+                                 xerror=f'Error {status} contacting COmanage')
 
-    person = query_result[0]
-    return person.uuid
+        if not active_flag:
+            log.warn(f'User is not an active user in /uuid/oidc_claim_sub')
+            return cors_response(HTTPStatus.FORBIDDEN,
+                                 xerror='User not an active user')
+
+        query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
+        query_result = query.all()
+
+        if len(query_result) == 0:
+            log.warn(f'Person with OIDC Claim sub {str(oidc_claim_sub)} in /uuid/oidc_claim_sub not found in database')
+            return cors_response(HTTPStatus.NOT_FOUND,
+                                 xerror='Person with OIDC claim sub not found: {0}'.format(oidc_claim_sub))
+        else:
+            if len(query_result) > 1:
+                log.warn(f'Duplicate OIDC Claim {str(oidc_claim_sub)} found in the database in /uuid/oidc_claim_sub')
+                return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                     xerror='Duplicate OIDC Claim Found: {0}'.format(oidc_claim_sub))
+
+        person = query_result[0]
+        return person.uuid
+    finally:
+        session.close()
