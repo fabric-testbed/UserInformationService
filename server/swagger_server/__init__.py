@@ -3,6 +3,8 @@ import datetime
 
 from swagger_server import encoder
 
+from comanage_api import ComanageApi
+
 from fss_utils.jwt_validate import ValidateCode, JWTValidator
 
 from swagger_server.database import metadata
@@ -73,6 +75,36 @@ COID = app_params.get("coid")
 CO_ACTIVE_USERS_COU = app_params.get("co_active_users_cou")
 # registry URL
 CO_REGISTRY_URL = app_params.get("co_registry_url")
+# COmanage ORG
+CO_NAME = app_params.get("co_name")
+# SSH Key Authenticator ID
+CO_SSH_AUTHENTICATOR_ID = app_params.get("co_ssh_authenticator_id")
+
+co_api = ComanageApi(
+    co_api_url=CO_REGISTRY_URL,
+    co_api_user=COAPI_USER,
+    co_api_pass=COAPI_KEY,
+    co_api_org_id=COID,
+    co_api_org_name=CO_NAME,
+    co_ssh_key_authenticator_id=CO_SSH_AUTHENTICATOR_ID
+)
+
+# get SSH key parameters
+SSH_KEY_ALGORITHM = "rsa"  # can use 'rsa', 'dsa' or 'ecdsa'
+SSH_KEY_STORAGE = "local"  # can be 'local' or 'comanage'
+SSH_BASTION_KEY_VALIDITY_DAYS = 2
+SSH_GARBAGE_COLLECT_AFTER_DAYS = 10
+SSH_KEY_SECRET = "secret"
+if app_params.get('key_algorithm', None) is not None:
+    SSH_KEY_ALGORITHM = app_params.get('key_algorithm')
+if app_params.get('key_storage', None) is not None:
+    SSH_KEY_STORAGE = app_params.get('key_storage')
+if app_params.get('key_validity', None) is not None:
+    SSH_BASTION_KEY_VALIDITY_DAYS = app_params.get('key_validity')
+if app_params.get('key_garbage_collect', None) is not None:
+    SSH_GARBAGE_COLLECT_AFTER_DAYS = app_params.get('key_garbage_collect')
+if app_params.get('key_secret', None) is not None:
+    SSH_KEY_SECRET = app_params.get('key_secret')
 
 # for testing e.g. comanage code we don't need the database running
 if not DISABLE_DATABASE:
