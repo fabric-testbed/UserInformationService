@@ -90,7 +90,8 @@ def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
 
         return response
     finally:
-        session.close()
+        if session is not None:
+            session.close()
 
 
 def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E501
@@ -137,7 +138,8 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E5
 
         return OKRETURN
     finally:
-        session.close()
+        if session is not None:
+            session.close()
 
 
 def preferences_uuid_get(uuid):  # noqa: E501
@@ -177,4 +179,5 @@ def preferences_uuid_get(uuid):  # noqa: E501
                                interests=utils.dict_from_json_handle_none(person.interests))
         return response
     finally:
-        session.close()
+        if session is not None:
+            session.close()
