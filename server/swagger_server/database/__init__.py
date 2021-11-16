@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-__VERSION__ = "1.0"
+__VERSION__ = "1.0.1"
 
 import logging
 
