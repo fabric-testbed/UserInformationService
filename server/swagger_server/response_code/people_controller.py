@@ -210,6 +210,8 @@ def people_uuid_get(uuid):  # noqa: E501
         if session is not None:
             session.close()
 
+        session.close()
+
 
 def uuid_oidc_claim_sub_get(oidc_claim_sub):
     """
