@@ -52,7 +52,7 @@ POSTGRES_ENGINE = 'postgres://' + db_params['user'] + ':' + db_params['password'
                   + '@' + db_params['host'] + ':' + db_params['port'] \
                   + '/' + db_params['db']
 
-DB_POOL_SIZE = int(db_params("pool_size"))
+DB_POOL_SIZE = int(db_params.get("pool_size"))
 # set overflow 10% of pool size
 DB_OVERFLOW = int(DB_POOL_SIZE * 0.1)
 if DB_OVERFLOW == 0:
