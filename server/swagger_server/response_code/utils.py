@@ -182,6 +182,55 @@ def validate_uuid_by_oidc_claim(headers, puuid) -> bool:
         session.close()
 
 
+def get_uuid_by_oidc_claim(headers) -> str or None:
+    """
+    Extract OIDC claim sub from header identity token and return UUID.
+    :param headers: request headers
+    :param puuid: uuid to match against
+    :return str or None:
+    """
+    id_token = headers.get(ID_TOKEN_NAME)
+    if id_token is None:
+        log.info("ID token absent")
+        return None
+
+    # validate the token
+    if jwt_validator is not None:
+        log.info("Validating CI Logon token")
+        code, e = jwt_validator.validate_jwt(token=id_token)
+        if code is not ValidateCode.VALID:
+            log.error(f"Unable to validate provided token: {code}/{e}")
+            return None
+    else:
+        log.warning("JWT Token validator not initialized, skipping validation")
+
+    decoded = jwt.decode(id_token, verify=False)
+    oidc_claim_sub = decoded.get(SUB_CLAIM, None)
+
+    if oidc_claim_sub is None:
+        log.error('"sub" claim not present in the decoded token')
+        return None
+
+    session = Session()
+    try:
+        query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
+        query_result = query.all()
+
+        if len(query_result) == 0:
+            log.error(f"Unable to find user matching claim sub {oidc_claim_sub}")
+            return None
+
+        if len(query_result) > 1:
+            log.error(f"Found multiple users matching claim sub {oidc_claim_sub}")
+            return None
+
+        person = query_result[0]
+
+        return person.uuid
+    finally:
+        session.close()
+
+
 def validate_oidc_claim(headers, oidc_claim_sub) -> bool:
     """
     Extract OIDC claim sub from header identity token and compare against parameter. Return

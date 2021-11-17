@@ -417,53 +417,13 @@ paths:
         "5XX":
           description: Unexpected error
       x-openapi-router-controller: swagger_server.controllers.publications_controller
-  /sshkeys/{keytype}/{uuid}:
-    get:
-      tags:
-      - sshkeys
-      summary: Get a list of active/non-expired keys of specified type (open to any
-        valid user)
-      operationId: sshkeys_keytype_uuid_get
-      parameters:
-      - name: keytype
-        in: path
-        required: true
-        style: simple
-        explode: false
-        schema:
-          $ref: '#/components/schemas/SshKeyType'
-      - name: uuid
-        in: path
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/SshKeyShort'
-                x-content-type: application/json
-        "400":
-          description: Bad request
-        "401":
-          description: Authorization information is missing or invalid
-        "404":
-          description: Keys not found
-        "5XX":
-          description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
+  /sshkey/{keytype}:
     put:
       tags:
       - sshkeys
       summary: Generate a new SSH key of specified type. Return both public and private
-        portions. key_uuid field in SshKeyShort is ignored. (open only to self)
-      operationId: sshkeys_keytype_uuid_put
+        portions. (open only to self)
+      operationId: sshkey_keytype_put
       parameters:
       - name: keytype
         in: path
@@ -472,13 +432,6 @@ paths:
         explode: false
         schema:
           $ref: '#/components/schemas/SshKeyType'
-      - name: uuid
-        in: path
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
       - name: comment
         in: query
         required: true
@@ -512,9 +465,9 @@ paths:
     post:
       tags:
       - sshkeys
-      summary: Add a user-provided ssh public key of specified type. key_uuid field
-        in SshKeyShort is ignored (open only to self)
-      operationId: sshkeys_keytype_uuid_post
+      summary: Add a user-provided ssh public key of specified type. (open only to
+        self)
+      operationId: sshkey_keytype_post
       parameters:
       - name: keytype
         in: path
@@ -523,14 +476,14 @@ paths:
         explode: false
         schema:
           $ref: '#/components/schemas/SshKeyType'
-      - name: uuid
-        in: path
+      - name: public_openssh
+        in: query
         required: true
-        style: simple
-        explode: false
+        style: form
+        explode: true
         schema:
           type: string
-      - name: public_openssh
+      - name: description
         in: query
         required: true
         style: form
@@ -554,21 +507,13 @@ paths:
         "5XX":
           description: Unexpected error
       x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
-  /sshkeys/{keytype}/{uuid}/{keyid}:
+  /sshkey/{uuid}/{keyid}:
     get:
       tags:
       - sshkeys
-      summary: "get metadata, including expiration date for this key based on key\
-        \ UUID (open only to self)"
-      operationId: sshkeys_keytype_uuid_keyid_get
+      summary: Get a specific key of a given user (open to any valid user)
+      operationId: sshkey_uuid_keyid_get
       parameters:
-      - name: keytype
-        in: path
-        required: true
-        style: simple
-        explode: false
-        schema:
-          $ref: '#/components/schemas/SshKeyType'
       - name: uuid
         in: path
         required: true
@@ -576,6 +521,40 @@ paths:
         explode: false
         schema:
           type: string
+      - name: keyid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SshKeyLong'
+                x-content-type: application/json
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
+  /sshkey/{keyid}:
+    get:
+      tags:
+      - sshkeys
+      summary: "get metadata, including expiration date for this key based on key\
+        \ UUID (open only to self)"
+      operationId: sshkey_keyid_get
+      parameters:
       - name: keyid
         in: path
         required: true
@@ -603,22 +582,8 @@ paths:
       tags:
       - sshkeys
       summary: Delete a specified key based on key UUID (open only to self)
-      operationId: sshkeys_keytype_uuid_keyid_delete
+      operationId: sshkey_keyid_delete
       parameters:
-      - name: keytype
-        in: path
-        required: true
-        style: simple
-        explode: false
-        schema:
-          $ref: '#/components/schemas/SshKeyType'
-      - name: uuid
-        in: path
-        required: true
-        style: simple
-        explode: false
-        schema:
-          type: string
       - name: keyid
         in: path
         required: true
@@ -643,13 +608,38 @@ paths:
         "5XX":
           description: Unexpected error
       x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
-  /keylist:
+  /sshkeys:
     get:
       tags:
       - sshkeys
-      summary: "Get a list of keys that were created, deactivated or expired since\
-        \ specified date in UTC (open to Bastion host)"
-      operationId: keylist_get
+      summary: Get a list of all active/non-expired keys of this user (open to self)
+      operationId: sshkeys_get
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SshKeyLong'
+                x-content-type: application/json
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
+  /bastionkeys:
+    get:
+      tags:
+      - sshkeys
+      summary: "Get a list of bastion keys that were created, deactivated or expired\
+        \ since specified date in UTC (open to Bastion hosts)"
+      operationId: bastionkeys_get
       parameters:
       - name: secret
         in: query
@@ -766,8 +756,6 @@ components:
       properties:
         key_uuid:
           type: string
-        public_key:
-          type: string
         name:
           type: string
         comment:
@@ -776,14 +764,9 @@ components:
           type: string
         fingerprint:
           type: string
+        public_key:
+          type: string
       description: Public SSH key short version
-      example:
-        public_key: public_key
-        key_uuid: key_uuid
-        name: name
-        fingerprint: fingerprint
-        description: description
-        comment: comment
     SshKeyLong:
       properties:
         key_uuid:

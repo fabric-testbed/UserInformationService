@@ -14,13 +14,11 @@ class SshKeyShort(Model):
 
     Do not edit the class manually.
     """
-    def __init__(self, key_uuid: str=None, public_key: str=None, name: str=None, comment: str=None, description: str=None, fingerprint: str=None):  # noqa: E501
+    def __init__(self, key_uuid: str=None, name: str=None, comment: str=None, description: str=None, fingerprint: str=None, public_key: str=None):  # noqa: E501
         """SshKeyShort - a model defined in Swagger
 
         :param key_uuid: The key_uuid of this SshKeyShort.  # noqa: E501
         :type key_uuid: str
-        :param public_key: The public_key of this SshKeyShort.  # noqa: E501
-        :type public_key: str
         :param name: The name of this SshKeyShort.  # noqa: E501
         :type name: str
         :param comment: The comment of this SshKeyShort.  # noqa: E501
@@ -29,30 +27,32 @@ class SshKeyShort(Model):
         :type description: str
         :param fingerprint: The fingerprint of this SshKeyShort.  # noqa: E501
         :type fingerprint: str
+        :param public_key: The public_key of this SshKeyShort.  # noqa: E501
+        :type public_key: str
         """
         self.swagger_types = {
             'key_uuid': str,
-            'public_key': str,
             'name': str,
             'comment': str,
             'description': str,
-            'fingerprint': str
+            'fingerprint': str,
+            'public_key': str
         }
 
         self.attribute_map = {
             'key_uuid': 'key_uuid',
-            'public_key': 'public_key',
             'name': 'name',
             'comment': 'comment',
             'description': 'description',
-            'fingerprint': 'fingerprint'
+            'fingerprint': 'fingerprint',
+            'public_key': 'public_key'
         }
         self._key_uuid = key_uuid
-        self._public_key = public_key
         self._name = name
         self._comment = comment
         self._description = description
         self._fingerprint = fingerprint
+        self._public_key = public_key
 
     @classmethod
     def from_dict(cls, dikt) -> 'SshKeyShort':
@@ -85,27 +85,6 @@ class SshKeyShort(Model):
         """
 
         self._key_uuid = key_uuid
-
-    @property
-    def public_key(self) -> str:
-        """Gets the public_key of this SshKeyShort.
-
-
-        :return: The public_key of this SshKeyShort.
-        :rtype: str
-        """
-        return self._public_key
-
-    @public_key.setter
-    def public_key(self, public_key: str):
-        """Sets the public_key of this SshKeyShort.
-
-
-        :param public_key: The public_key of this SshKeyShort.
-        :type public_key: str
-        """
-
-        self._public_key = public_key
 
     @property
     def name(self) -> str:
@@ -190,3 +169,24 @@ class SshKeyShort(Model):
         """
 
         self._fingerprint = fingerprint
+
+    @property
+    def public_key(self) -> str:
+        """Gets the public_key of this SshKeyShort.
+
+
+        :return: The public_key of this SshKeyShort.
+        :rtype: str
+        """
+        return self._public_key
+
+    @public_key.setter
+    def public_key(self, public_key: str):
+        """Sets the public_key of this SshKeyShort.
+
+
+        :param public_key: The public_key of this SshKeyShort.
+        :type public_key: str
+        """
+
+        self._public_key = public_key

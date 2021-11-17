@@ -106,7 +106,8 @@ class DbSshKey(Base):
     type = Column(String)
     fingerprint = Column(String)
     created_on = Column(TIMESTAMP)
-    expires_on = Column(TIMESTAMP)
+    # NOTE: not clear this index is enough to optimize searches for expired keys
+    expires_on = Column(TIMESTAMP, index=True)
     active = Column(Boolean)
     deactivation_reason = Column(String)
     deactivated_on = Column(TIMESTAMP)

@@ -35,7 +35,7 @@ from fss_utils.http_errors import cors_response
 from fss_utils.sshkey import FABRICSSHKey, FABRICSSHKeyException
 
 from swagger_server import SSH_KEY_STORAGE, SSH_KEY_ALGORITHM, SSH_BASTION_KEY_VALIDITY_DAYS, \
-    SSH_GARBAGE_COLLECT_AFTER_DAYS, SSH_KEY_SECRET
+    SSH_GARBAGE_COLLECT_AFTER_DAYS, SSH_KEY_SECRET, co_api
 from swagger_server.database import Session
 
 import swagger_server.response_code.utils as utils
@@ -49,7 +49,7 @@ from swagger_server.models.ssh_key_pair import SshKeyPair  # noqa: E501
 from swagger_server.models.ssh_key_short import SshKeyShort  # noqa: E501
 
 
-def keylist_date_get(secret, since_date) -> List[SshKeyBastion]:
+def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
     """
     Special endpoint for bastion agent to get a list of
     keys that have been added/deactivated/expired.
@@ -106,6 +106,235 @@ def keylist_date_get(secret, since_date) -> List[SshKeyBastion]:
         raise RuntimeError('COmanage backend not yet implemented')
 
 
+def sshkeys_get() -> List[SshKeyLong]:  # noqa: E501
+    """
+    Get a list of active keys for a given user
+    Open to self.
+    """
+    if not utils.any_authenticated_user(request.headers):
+        return cors_response(HTTPStatus.UNAUTHORIZED,
+                             xerror='User not authenticated')
+
+    _uuid = utils.get_uuid_by_oidc_claim(request.headers)
+
+    if _uuid is None:
+        log.error(f'OIDC Claim Sub is invalid or unable to find UUID {_uuid} in sshkeys_get')
+        return cors_response(HTTPStatus.FORBIDDEN,
+                             xerror='Unable to find UUID from OIDC Sub claim')
+
+    if SSH_KEY_STORAGE == 'local':
+        session = Session()
+        try:
+            _expire_keys(session)
+            _garbage_collect_keys(session)
+
+            query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
+                                                   DbSshKey.active == True)
+            query_result = query.all()
+
+            ret = list()
+            for res in query_result:
+                ret.append(_fill_long_key(query_result[0]))
+
+            return ret
+        finally:
+            session.commit()
+            session.close()
+    else:
+        raise RuntimeError('COmanage not yet implemented')
+
+
+def sshkeys_keyid_delete(keyid: str) -> str:  # noqa: E501
+    """
+    Delete/deactivate a specified key. Open only to self.
+    """
+    if not utils.any_authenticated_user(request.headers):
+        return cors_response(HTTPStatus.UNAUTHORIZED,
+                             xerror='User not authenticated')
+
+    _uuid = utils.get_uuid_by_oidc_claim(request.headers)
+
+    if _uuid is None:
+        log.error(f'OIDC Claim Sub is invalid or unable to find UUID {_uuid} in sshkeys_keyid_delete')
+        return cors_response(HTTPStatus.FORBIDDEN,
+                             xerror='Unable to find UUID from OIDC Sub claim')
+
+    if SSH_KEY_STORAGE == 'local':
+        session = Session()
+        try:
+            query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
+                                                   DbSshKey.key_uuid == keyid,
+                                                   DbSshKey.active == True)
+            query_result = query.all()
+            if len(query_result) > 0:
+                for q in query_result:
+                    q.active = False
+                    q.deactivation_reason = f'Deactivated by owner on {datetime.now(timezone.utc)}Z'
+                    q.deactivated_on = datetime.now(timezone.utc)
+            session.commit()
+
+            return "OK"
+
+        finally:
+            session.close()
+    else:
+        raise RuntimeError('COmanage not yet implemented')
+
+
+def sshkey_uuid_keyid_get(_uuid: str, keyid: str) -> SshKeyLong:  # noqa: E501
+    """
+    Get a specified active key for this user. Open to any valid user.
+    """
+    if not utils.any_authenticated_user(request.headers):
+        return cors_response(HTTPStatus.UNAUTHORIZED,
+                             xerror='User not authenticated')
+
+    _uuid = _uuid.strip()
+
+    if SSH_KEY_STORAGE == 'local':
+        session = Session()
+        try:
+            _expire_keys(session)
+            _garbage_collect_keys(session)
+
+            query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
+                                                   DbSshKey.active == True,
+                                                   DbSshKey.key_uuid == keyid)
+            query_result = query.all()
+
+            if len(query_result) < 1:
+                log.warn(f'Unable to find active key {keyid} for user {_uuid} in sshkeys_uuid_keyid_get, '
+                         f'proceeding')
+                return cors_response(HTTPStatus.NOT_FOUND,
+                                     xerror='Key {0} not found for user {1}'.format(keyid, _uuid))
+
+            return _fill_long_key(query_result[0])
+
+        finally:
+            session.commit()
+            session.close()
+    else:
+        raise RuntimeError('COmanage not yet implemented')
+
+
+def sshkey_keyid_get(keyid: str) -> SshKeyLong:  # noqa: E501
+    """
+    Get a specified key regardless of status. Open only to self.
+    """
+    if not utils.any_authenticated_user(request.headers):
+        return cors_response(HTTPStatus.UNAUTHORIZED,
+                             xerror='User not authenticated')
+
+    _uuid = utils.get_uuid_by_oidc_claim(request.headers)
+
+    if _uuid is None:
+        log.error(f'OIDC Claim Sub is invalid or unable to find UUID {_uuid} in sshkeys_keyid_get')
+        return cors_response(HTTPStatus.FORBIDDEN,
+                             xerror='Unable to find UUID from OIDC Sub claim')
+
+    if SSH_KEY_STORAGE == 'local':
+        session = Session()
+        try:
+            _expire_keys(session)
+            _garbage_collect_keys(session)
+
+            query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
+                                                   DbSshKey.key_uuid == keyid)
+            query_result = query.all()
+
+            if len(query_result) < 1:
+                log.warn(f'Unable to find key {keyid} for user {_uuid} in sshkeys_keyid_get, '
+                         f'proceeding')
+                return cors_response(HTTPStatus.NOT_FOUND,
+                                     xerror='Key {0} not found for user {1}'.format(keyid, _uuid))
+
+            return _fill_long_key(query_result[0])
+
+        finally:
+            session.commit()
+            session.close()
+    else:
+        raise RuntimeError('COmanage not yet implemented')
+
+
+def sshkeys_keytype_post(keytype: str, public_openssh: str, description: str) -> str:  # noqa: E501
+    """
+    Post a public key
+    """
+    if not utils.any_authenticated_user(request.headers):
+        return cors_response(HTTPStatus.UNAUTHORIZED,
+                             xerror='User not authenticated')
+
+    _uuid = utils.get_uuid_by_oidc_claim(request.headers)
+
+    if _uuid is None:
+        log.error(f'OIDC Claim Sub is invalid or unable to find UUID {_uuid} in sshkeys_keytype_post')
+        return cors_response(HTTPStatus.FORBIDDEN,
+                             xerror='Unable to find UUID from OIDC Sub claim')
+
+    try:
+        # instantiate to test its validity
+        fssh = FABRICSSHKey(public_openssh)
+    except FABRICSSHKeyException as e:
+        log.error(f'Provided key for {_uuid} is invalid due to {str(e)}')
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror=f'Provided key for {_uuid} is invalid due to {str(e)}')
+
+    short_key = SshKeyShort()
+    short_key.name = fssh.name
+    short_key.comment = fssh.comment
+    short_key.public_key = fssh.public_key
+    short_key.fingerprint = fssh.get_fingerprint()
+    short_key.description = description
+
+    if not _check_unique(_uuid, short_key.fingerprint):
+        log.error(f'Provided key for {_uuid} with fingerprint {short_key.fingerprint} is not unique')
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror=f'Provided key for {_uuid} with fingerprint {short_key.fingerprint} is not unique')
+
+    _store_ssh_key(_uuid, keytype, short_key)
+
+    return "OK"
+
+
+def sshkeys_keytype_put(keytype: str, comment: str, description: str) -> SshKeyPair: # noqa: E501
+    """
+    Generate a key pair returning it.
+    """
+    if not utils.any_authenticated_user(request.headers):
+        return cors_response(HTTPStatus.UNAUTHORIZED,
+                             xerror='User not authenticated')
+
+    _uuid = utils.get_uuid_by_oidc_claim(request.headers)
+
+    if _uuid is None:
+        log.error(f'OIDC Claim Sub is invalid or unable to find UUID {_uuid} in sshkeys_keytype_put')
+        return cors_response(HTTPStatus.FORBIDDEN,
+                             xerror='Unable to find UUID from OIDC Sub claim')
+
+    log.info(f'Generating key of type {keytype} for {_uuid} with comment {comment}')
+    try:
+        fssh = FABRICSSHKey.generate(comment, SSH_KEY_ALGORITHM)
+    except FABRICSSHKeyException as e:
+        log.error(f'Unable to generate a new key for {_uuid} due to {str(e)}')
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror=f'Unable to generate a new key for {_uuid} due to {str(e)}')
+
+    short_key = SshKeyShort()
+    short_key.name = fssh.name
+    short_key.public_key = fssh.public_key
+    short_key.comment = fssh.comment
+    short_key.description = description
+    short_key.fingerprint = fssh.get_fingerprint()
+    # insert in database
+    _store_ssh_key(_uuid, keytype, short_key)
+
+    ret = fssh.as_keypair()
+
+    # return to user the keypair
+    return SshKeyPair(ret[0], ret[1])
+
+
 def _expire_keys(session=None):
     """
     Scan the keys and deactivate those that are expired.
@@ -138,158 +367,34 @@ def _garbage_collect_keys(session=None):
         raise RuntimeError('COmanage backend not yet implemented')
 
 
-def sshkeys_keytype_uuid_get(keytype: str, _uuid: str) -> List[SshKeyShort]:  # noqa: E501
-    """
-    Get a list of active keys of a given type for a given user
-    Open to any valid user.
-    """
-    if not utils.any_authenticated_user(request.headers):
-        return cors_response(HTTPStatus.UNAUTHORIZED,
-                             xerror='User not authenticated')
+def _fill_long_key(query_result) -> SshKeyLong:
 
-    _uuid = str(_uuid).strip()
-    if not utils.validate_uuid_by_oidc_claim(request.headers, _uuid):
-        log.error(f'OIDC Claim Sub doesnt match UUID {_uuid} in sshkeys_keytype_uuid_get')
-        return cors_response(HTTPStatus.FORBIDDEN,
-                             xerror='OIDC Claim Sub doesnt match UUID')
+    skl = SshKeyLong()
+    skl.name = query_result.name
+    skl.description = query_result.description
+    skl.comment = query_result.comment
+    skl.key_uuid = query_result.key_uuid
+    skl.public_key = query_result.public_key
+    skl.created_on = str(query_result.created_on)
+    skl.expires_on = str(query_result.expires_on)
+    skl.fingerprint = query_result.fingerprint
+    if not query_result.active:
+        skl.deactivated_on = query_result.deactivated_on
+        skl.deactivation_reason = query_result.deactivation_reason
+    return skl
+
+
+def _store_ssh_key(_uuid: str, keytype:str, key: SshKeyShort) -> None:
+    """
+    Select where to store the ssh key - locally or in COmanage.
+    """
 
     if SSH_KEY_STORAGE == 'local':
-        session = Session()
-        try:
-            _expire_keys(session)
-            _garbage_collect_keys(session)
-
-            query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
-                                                   DbSshKey.type == keytype,
-                                                   DbSshKey.active == True)
-            query_result = query.all()
-
-            ret = list()
-            for res in query_result:
-                ins = SshKeyShort()
-                ins.key_uuid = res.key_uuid
-                ins.name = res.name
-                ins.description = res.description
-                ins.comment = res.comment
-                ins.fingerprint = res.fingerprint
-                ret.append(ins)
-
-            return ret
-        finally:
-            session.commit()
-            session.close()
+        log.debug(f'Storing key {key.name} locally')
+        _store_ssh_key_local(_uuid, keytype, key)
     else:
-        raise RuntimeError('COmanage not yet implemented')
-
-
-def sshkeys_keytype_uuid_keyid_delete(keytype: str, _uuid: str, keyid: str) -> str:  # noqa: E501
-    """
-    Delete/deactivate a specified key. Open only to self.
-    """
-    if not utils.any_authenticated_user(request.headers):
-        return cors_response(HTTPStatus.UNAUTHORIZED,
-                             xerror='User not authenticated')
-
-    _uuid = str(_uuid).strip()
-    if not utils.validate_uuid_by_oidc_claim(request.headers, _uuid):
-        log.error(f'OIDC Claim Sub doesnt match UUID {_uuid} in sshkeys_keytype_uuid_keyid_delete')
-        return cors_response(HTTPStatus.FORBIDDEN,
-                             xerror='OIDC Claim Sub doesnt match UUID')
-
-    if SSH_KEY_STORAGE == 'local':
-        session = Session()
-        try:
-            query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
-                                                   DbSshKey.type == keytype,
-                                                   DbSshKey.key_uuid == keyid,
-                                                   DbSshKey.active == True)
-            query_result = query.all()
-            if len(query_result) > 0:
-                for q in query_result:
-                    q.active = False
-                    q.deactivation_reason = f'Deactivated by owner on {datetime.now(timezone.utc)}Z'
-                    q.deactivated_on = datetime.now(timezone.utc)
-            session.commit()
-
-            return "OK"
-
-        finally:
-            session.close()
-    else:
-        raise RuntimeError('COmanage not yet implemented')
-
-
-def sshkeys_keytype_uuid_keyid_get(keytype: str, _uuid: str, keyid: str) -> SshKeyLong:  # noqa: E501
-    """
-    Get a specified key regardless of status. Open only to self.
-    """
-    if not utils.any_authenticated_user(request.headers):
-        return cors_response(HTTPStatus.UNAUTHORIZED,
-                             xerror='User not authenticated')
-
-    _uuid = str(_uuid).strip()
-    if not utils.validate_uuid_by_oidc_claim(request.headers, _uuid):
-        log.error(f'OIDC Claim Sub doesnt match UUID {_uuid} in sshkeys_keytype_uuid_keyid_get')
-        return cors_response(HTTPStatus.FORBIDDEN,
-                             xerror='OIDC Claim Sub doesnt match UUID')
-
-    if SSH_KEY_STORAGE == 'local':
-        session = Session()
-        try:
-            _expire_keys(session)
-            _garbage_collect_keys(session)
-
-            query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
-                                                   DbSshKey.type == keytype,
-                                                   DbSshKey.key_uuid == keyid)
-            query_result = query.all()
-
-            if len(query_result) < 1:
-                log.warn(f'Unable to find key {keyid} of type {keytype} for user {_uuid} in sshkeys_keytype_uuid_keyid_get, '
-                         f'proceeding')
-                return cors_response(HTTPStatus.NOT_FOUND,
-                                     xerror='Key {0} of type {1} not found for user {2}'.format(keyid, keyid, _uuid))
-
-            skl = SshKeyLong()
-            skl.name = query_result[0].name
-            skl.description = query_result[0].description
-            skl.comment = query_result[0].comment
-            skl.key_uuid = query_result[0].key_uuid
-            skl.public_key = query_result[0].public_key
-            skl.created_on = str(query_result[0].created_on)
-            skl.expires_on = str(query_result[0].expires_on)
-            skl.fingerprint = query_result[0].fingerprint
-            if not query_result[0].active:
-                skl.deactivated_on = query_result[0].deactivated_on
-                skl.deactivation_reason = query_result[0].deactivation_reason
-            return skl
-
-        finally:
-            session.commit()
-            session.close()
-    else:
-        raise RuntimeError('COmanage not yet implemented')
-
-
-def _check_unique(_uuid: str, fingerprint: str) -> bool:
-    """
-    See if a key with this fingerprint is already in the system for this user,
-    regardless of type or status.
-    """
-    if SSH_KEY_STORAGE == 'local':
-        session = Session()
-        try:
-            query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
-                                                   DbSshKey.fingerprint == fingerprint)
-            query_result = query.all()
-            if len(query_result) > 0:
-                return False
-            return True
-
-        finally:
-            session.close()
-    else:
-        raise RuntimeError('COmanage not yet implemented')
+        log.debug(f'Storing key {key.name} in COmanage')
+        _store_ssh_key_comanage(_uuid, keytype, key)
 
 
 def _store_ssh_key_local(_uuid: str, keytype: str, key: SshKeyShort) -> None:
@@ -321,95 +426,23 @@ def _store_ssh_key_local(_uuid: str, keytype: str, key: SshKeyShort) -> None:
 
 
 def _store_ssh_key_comanage(_uuid: str, keytype: str, key: SshKeyShort) -> None:
-    raise RuntimeError('COmanage not yet implemented')
+
     pass
 
 
-def _store_ssh_key(_uuid: str, keytype:str, key: SshKeyShort) -> None:
+def _check_unique(_uuid: str, fingerprint: str) -> bool:
     """
-    Select where to store the ssh key - locally or in COmanage.
+    See if a key with this fingerprint is already in the system for this user,
+    regardless of type or status.
     """
-
-    if SSH_KEY_STORAGE == 'local':
-        log.debug(f'Storing key {key.name} locally')
-        _store_ssh_key_local(_uuid, keytype, key)
-    else:
-        log.debug(f'Storing key {key.name} in COmanage')
-        _store_ssh_key_comanage(_uuid, keytype, key)
-
-
-def sshkeys_keytype_uuid_post(keytype: str, _uuid: str, public_openssh: str) -> str:  # noqa: E501
-    """
-    Post a public key
-    """
-    if not utils.any_authenticated_user(request.headers):
-        return cors_response(HTTPStatus.UNAUTHORIZED,
-                             xerror='User not authenticated')
-
-    _uuid = str(_uuid).strip()
-    if not utils.validate_uuid_by_oidc_claim(request.headers, _uuid):
-        log.error(f'OIDC Claim Sub doesnt match UUID {_uuid} in sshkeys_keytype_uuid_post')
-        return cors_response(HTTPStatus.FORBIDDEN,
-                             xerror='OIDC Claim Sub doesnt match UUID')
-
+    session = Session()
     try:
-        # instantiate to test its validity
-        fssh = FABRICSSHKey(public_openssh)
-    except FABRICSSHKeyException as e:
-        log.error(f'Provided key for {_uuid} is invalid due to {str(e)}')
-        return cors_response(HTTPStatus.BAD_REQUEST,
-                             xerror=f'Provided key for {_uuid} is invalid due to {str(e)}')
+        query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
+                                               DbSshKey.fingerprint == fingerprint)
+        query_result = query.all()
+        if len(query_result) > 0:
+            return False
+        return True
 
-    short_key = SshKeyShort()
-    short_key.name = fssh.name
-    short_key.comment = fssh.comment
-    short_key.public_key = fssh.public_key
-    short_key.fingerprint = fssh.get_fingerprint()
-
-    if not _check_unique(_uuid, short_key.fingerprint):
-        log.error(f'Provided key for {_uuid} with fingerprint {short_key.fingerprint} is not unique')
-        return cors_response(HTTPStatus.BAD_REQUEST,
-                             xerror=f'Provided key for {_uuid} with fingerprint {short_key.fingerprint} is not unique')
-
-    _store_ssh_key(_uuid, keytype, short_key)
-
-    return "OK"
-
-
-def sshkeys_keytype_uuid_put(keytype: str, _uuid: str, comment: str, description: str) -> SshKeyPair: # noqa: E501
-    """
-    Generate a key pair returning it.
-    """
-    if not utils.any_authenticated_user(request.headers):
-        return cors_response(HTTPStatus.UNAUTHORIZED,
-                             xerror='User not authenticated')
-
-    # validate UUID
-    _uuid = str(_uuid).strip()
-    if not utils.validate_uuid_by_oidc_claim(request.headers, _uuid):
-        log.error(f'OIDC Claim Sub doesnt match UUID {_uuid} in sshkeys_keytype_uuid_put')
-        return cors_response(HTTPStatus.FORBIDDEN,
-                             xerror='OIDC Claim Sub doesnt match UUID')
-
-    log.info(f'Generating key of type {keytype} for {_uuid} with comment {comment}')
-    try:
-        fssh = FABRICSSHKey.generate(comment, SSH_KEY_ALGORITHM)
-    except FABRICSSHKeyException as e:
-        log.error(f'Unable to generate a new key for {_uuid} due to {str(e)}')
-        return cors_response(HTTPStatus.BAD_REQUEST,
-                             xerror=f'Unable to generate a new key for {_uuid} due to {str(e)}')
-
-    short_key = SshKeyShort()
-    short_key.name = fssh.name
-    short_key.public_key = fssh.public_key
-    short_key.comment = fssh.comment
-    short_key.description = description
-    short_key.fingerprint = fssh.get_fingerprint()
-    # insert in database
-    _store_ssh_key(_uuid, keytype, short_key)
-
-    ret = fssh.as_keypair()
-
-    # return to user the keypair
-    return SshKeyPair(ret[0], ret[1])
-
+    finally:
+        session.close()
