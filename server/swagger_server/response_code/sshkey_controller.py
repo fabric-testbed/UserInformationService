@@ -23,9 +23,11 @@
 #
 #
 # Author: Ilya Baldin (ibaldin@renci.org) Michael Stealey (stealey@renci.org)
-
+import enum
 from typing import List
+from enum import Enum
 
+import re
 from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from flask import request
@@ -35,7 +37,7 @@ from fss_utils.http_errors import cors_response
 from fss_utils.sshkey import FABRICSSHKey, FABRICSSHKeyException
 
 from swagger_server import SSH_KEY_STORAGE, SSH_KEY_ALGORITHM, SSH_BASTION_KEY_VALIDITY_DAYS, \
-    SSH_GARBAGE_COLLECT_AFTER_DAYS, SSH_KEY_SECRET, co_api
+    SSH_GARBAGE_COLLECT_AFTER_DAYS, SSH_KEY_SECRET, SSH_KEY_QTY_LIMIT, co_api
 from swagger_server.database import Session
 
 import swagger_server.response_code.utils as utils
@@ -47,6 +49,19 @@ from swagger_server.models.ssh_key_bastion import SshKeyBastion  # noqa: E501
 from swagger_server.models.ssh_key_long import SshKeyLong  # noqa: E501
 from swagger_server.models.ssh_key_pair import SshKeyPair  # noqa: E501
 from swagger_server.models.ssh_key_short import SshKeyShort  # noqa: E501
+
+DESCRIPTION_REGEX = r"^[\w\s\-\.@_()/]{5,255}$"
+
+
+class KeyType(Enum):
+    bastion = enum.auto()
+    sliver = enum.auto()
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
 
 
 def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
@@ -75,9 +90,9 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
 
             ret = list()
             query = session.query(DbSshKey, FabricPerson).filter(DbSshKey.active == True,
-                                                            DbSshKey.created_on > pdate,
-                                                            DbSshKey.type == 'bastion',
-                                                            DbSshKey.owner_uuid == FabricPerson.uuid)
+                                                                 DbSshKey.created_on > pdate,
+                                                                 DbSshKey.type == KeyType.bastion.name,
+                                                                 DbSshKey.owner_uuid == FabricPerson.uuid)
             query_result = query.all()
             for qk, qp in query_result:
                 k = SshKeyBastion()
@@ -88,7 +103,7 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
 
             query = session.query(DbSshKey, FabricPerson).filter(DbSshKey.active == False,
                                                                 DbSshKey.deactivated_on > pdate,
-                                                                 DbSshKey.type == 'bastion',
+                                                                 DbSshKey.type == KeyType.bastion.name,
                                                                 DbSshKey.owner_uuid == FabricPerson.uuid)
             query_result = query.all()
             for qk, qp in query_result:
@@ -134,7 +149,7 @@ def sshkeys_get() -> List[SshKeyLong]:  # noqa: E501
 
             ret = list()
             for res in query_result:
-                ret.append(_fill_long_key(query_result[0]))
+                ret.append(_fill_long_key(res))
 
             return ret
         finally:
@@ -151,6 +166,11 @@ def sshkeys_keyid_delete(keyid: str) -> str:  # noqa: E501
     if not utils.any_authenticated_user(request.headers):
         return cors_response(HTTPStatus.UNAUTHORIZED,
                              xerror='User not authenticated')
+
+    if _bad_uuid(keyid):
+        log.error(f'Invalid keyid {keyid} supplied by the caller, rejecting in ssh_keyid_delete.')
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror='Supplied keyid {0} is not valid.'.format(keyid))
 
     _uuid = utils.get_uuid_by_oidc_claim(request.headers)
 
@@ -191,6 +211,16 @@ def sshkey_uuid_keyid_get(_uuid: str, keyid: str) -> SshKeyLong:  # noqa: E501
 
     _uuid = _uuid.strip()
 
+    if _bad_uuid(_uuid):
+        log.error(f'Invalid UUID {_uuid} supplied by the caller, rejecting in sshkey_uuid_keyid_get.')
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror='Supplied UUID {0} is not valid.'.format(_uuid))
+
+    if _bad_uuid(keyid):
+        log.error(f'Invalid keyid {keyid} supplied by the caller, rejecting in sshkey_uuid_keyid_get.')
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror='Supplied keyid {0} is not valid.'.format(keyid))
+
     if SSH_KEY_STORAGE == 'local':
         session = Session()
         try:
@@ -224,6 +254,11 @@ def sshkey_keyid_get(keyid: str) -> SshKeyLong:  # noqa: E501
     if not utils.any_authenticated_user(request.headers):
         return cors_response(HTTPStatus.UNAUTHORIZED,
                              xerror='User not authenticated')
+
+    if _bad_uuid(keyid):
+        log.error(f'Invalid keyid {keyid} supplied by the caller, rejecting.')
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror='Supplied keyid {0} is not valid.'.format(keyid))
 
     _uuid = utils.get_uuid_by_oidc_claim(request.headers)
 
@@ -285,12 +320,27 @@ def sshkeys_keytype_post(keytype: str, public_openssh: str, description: str) ->
     short_key.comment = fssh.comment
     short_key.public_key = fssh.public_key
     short_key.fingerprint = fssh.get_fingerprint()
+    matches = re.match(DESCRIPTION_REGEX, description)
+    if matches is None:
+        log.error(f'Provided description for {_uuid} does not match expected REGEX {DESCRIPTION_REGEX}')
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror=f'Provided description does not match expected REGEX {DESCRIPTION_REGEX}')
     short_key.description = description
 
-    if not _check_unique(_uuid, short_key.fingerprint):
-        log.error(f'Provided key for {_uuid} with fingerprint {short_key.fingerprint} is not unique')
-        return cors_response(HTTPStatus.BAD_REQUEST,
-                             xerror=f'Provided key for {_uuid} with fingerprint {short_key.fingerprint} is not unique')
+    session = Session()
+    try:
+        if not _check_unique(_uuid, short_key.fingerprint, session):
+            log.error(f'Provided key for {_uuid} with fingerprint {short_key.fingerprint} is not unique')
+            return cors_response(HTTPStatus.BAD_REQUEST,
+                                 xerror=f'Provided key for {_uuid} with fingerprint '
+                                        f'{short_key.fingerprint} is not unique')
+        if _check_key_qty(_uuid, keytype, session) >= SSH_KEY_QTY_LIMIT:
+            log.error(f'Too many keys of type {keytype} for user {_uuid}, limit {SSH_KEY_QTY_LIMIT}')
+            return cors_response(HTTPStatus.BAD_REQUEST,
+                                 xerror=f'Too many active keys for this user, limit {SSH_KEY_QTY_LIMIT}')
+    finally:
+        if session is not None:
+            session.close()
 
     _store_ssh_key(_uuid, keytype, short_key)
 
@@ -324,6 +374,11 @@ def sshkeys_keytype_put(keytype: str, comment: str, description: str) -> SshKeyP
     short_key.name = fssh.name
     short_key.public_key = fssh.public_key
     short_key.comment = fssh.comment
+    matches = re.match(DESCRIPTION_REGEX, description)
+    if matches is None:
+        log.error(f'Provided description for {_uuid} does not match expected REGEX {DESCRIPTION_REGEX}')
+        return cors_response(HTTPStatus.BAD_REQUEST,
+                             xerror=f'Provided description does not match expected REGEX {DESCRIPTION_REGEX}')
     short_key.description = description
     short_key.fingerprint = fssh.get_fingerprint()
     # insert in database
@@ -430,19 +485,35 @@ def _store_ssh_key_comanage(_uuid: str, keytype: str, key: SshKeyShort) -> None:
     pass
 
 
-def _check_unique(_uuid: str, fingerprint: str) -> bool:
+def _check_key_qty(_uuid: str, keytype: str, session: Session) -> int:
+    """
+    How many active keys of this type are already there for this user?
+    """
+    query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
+                                           DbSshKey.active == True,
+                                           DbSshKey.type == keytype)
+    query_result = query.all()
+    return len(query_result)
+
+
+def _check_unique(_uuid: str, fingerprint: str, session: Session) -> bool:
     """
     See if a key with this fingerprint is already in the system for this user,
     regardless of type or status.
     """
-    session = Session()
-    try:
-        query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
-                                               DbSshKey.fingerprint == fingerprint)
-        query_result = query.all()
-        if len(query_result) > 0:
-            return False
-        return True
+    query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
+                                           DbSshKey.fingerprint == fingerprint)
+    query_result = query.all()
+    if len(query_result) > 0:
+        return False
+    return True
 
-    finally:
-        session.close()
+
+def _bad_uuid(_uuid: str) -> bool:
+    """
+    Check that UUID (user or key) is reasonable.
+    """
+    # for now just check length. could do regex if we wanted to.
+    if len(_uuid) > 64:
+        return True
+    return False

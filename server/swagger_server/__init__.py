@@ -37,6 +37,11 @@ elif app_params.get('user_data', None) == 'ldap':
 elif app_params.get('user_data', None) == 'rest':
     LOAD_USER_DATA = 'rest'
 
+SSH_KEY_QTY_LIMIT = 10
+if app_params.get('ssh_key_qty_limit', None) is not None:
+    SSH_KEY_QTY_LIMIT = int(app_params.get('ssh_key_qty_limit'))
+log.info(f'Using a limit of {SSH_KEY_QTY_LIMIT} keys of any type as maximum per user')
+
 USER_DB_DROP = False
 if app_params.get('user_db_drop', None) == 'true' or \
         app_params.get('user_db_drop', None) == 'yes':
