@@ -53,6 +53,7 @@ UIS_CO_SSH_AUTHENTICATOR_ID="123"
 UIS_SSH_KEY_ALGORITHM="rsa" # can also be "ecdsa"
 UIS_SSH_KEY_STORAGE="local" # can also be "comanage"
 UIS_SSH_BASTION_KEY_VALIDITY_DAYS=5
+UIS_SSH_SLIVER_KEY_VALIDITY_DAYS=365
 UIS_SSH_GARBAGE_COLLECT_AFTER_DAYS=10
 # for bastion host to have a shared secret when calling /bastionkeys
 UIS_SSH_KEY_SECRET="secret1"
