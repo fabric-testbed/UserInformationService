@@ -95,21 +95,24 @@ co_api = ComanageApi(
 )
 
 # get SSH key parameters
-SSH_KEY_ALGORITHM = "rsa"  # can use 'rsa', 'dsa' or 'ecdsa'
+SSH_KEY_ALGORITHM = "rsa"  # can use 'rsa' or 'ecdsa'
 SSH_KEY_STORAGE = "local"  # can be 'local' or 'comanage'
-SSH_BASTION_KEY_VALIDITY_DAYS = 2
-SSH_GARBAGE_COLLECT_AFTER_DAYS = 10
+SSH_BASTION_KEY_VALIDITY_DAYS = 30
+SSH_SLIVER_KEY_VALIDITY_DAYS = 180
+SSH_GARBAGE_COLLECT_AFTER_DAYS = 30
 SSH_KEY_SECRET = "secret"
-if app_params.get('key_algorithm', None) is not None:
-    SSH_KEY_ALGORITHM = app_params.get('key_algorithm')
-if app_params.get('key_storage', None) is not None:
-    SSH_KEY_STORAGE = app_params.get('key_storage')
-if app_params.get('key_validity', None) is not None:
-    SSH_BASTION_KEY_VALIDITY_DAYS = app_params.get('key_validity')
-if app_params.get('key_garbage_collect', None) is not None:
-    SSH_GARBAGE_COLLECT_AFTER_DAYS = app_params.get('key_garbage_collect')
-if app_params.get('key_secret', None) is not None:
-    SSH_KEY_SECRET = app_params.get('key_secret')
+if app_params.get('ssh_key_algorithm', None) is not None:
+    SSH_KEY_ALGORITHM = app_params.get('ssh_key_algorithm')
+if app_params.get('ssh_key_storage', None) is not None:
+    SSH_KEY_STORAGE = app_params.get('ssh_key_storage')
+if app_params.get('ssh_bastion_key_validity_days', None) is not None:
+    SSH_BASTION_KEY_VALIDITY_DAYS = app_params.get('ssh_bastion_key_validity_days')
+if app_params.get('ssh_sliver_key_validity_days', None) is not None:
+    SSH_SLIVER_KEY_VALIDITY_DAYS = app_params.get('ssh_sliver_key_validity_days')
+if app_params.get('ssh_garbage_collect_after_days', None) is not None:
+    SSH_GARBAGE_COLLECT_AFTER_DAYS = app_params.get('ssh_garbage_collect_after_days')
+if app_params.get('ssh_key_secret', None) is not None:
+    SSH_KEY_SECRET = app_params.get('ssh_key_secret')
 
 # for testing e.g. comanage code we don't need the database running
 if not DISABLE_DATABASE:
