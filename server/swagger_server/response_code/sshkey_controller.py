@@ -50,8 +50,6 @@ from swagger_server.models.ssh_key_long import SshKeyLong  # noqa: E501
 from swagger_server.models.ssh_key_pair import SshKeyPair  # noqa: E501
 from swagger_server.models.ssh_key_short import SshKeyShort  # noqa: E501
 
-DESCRIPTION_REGEX = r"^[\w\s\-\.@_()/]{5,255}$"
-
 
 class KeyType(Enum):
     bastion = enum.auto()
@@ -62,6 +60,22 @@ class KeyType(Enum):
 
     def __str__(self):
         return self.name
+
+
+class KeyStatus(Enum):
+    active = enum.auto()
+    deactivated = enum.auto()
+
+    def __repr__(self):
+        return self.name
+
+    def __str__(self):
+        return self.name
+
+TZISO = r"^.+\+[\d]{2}:[\d]{2}$"
+TZPYTHON = r"^.+\+[\d]{4}$"
+DESCRIPTION_REGEX = r"^[\w\s\-\.@_()/]{5,255}$"
+COMMENT_LENGTH = 100
 
 
 def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
@@ -82,7 +96,17 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
             _garbage_collect_keys(session)
             # first a list of new keys
             try:
-                pdate = datetime.fromisoformat(since_date)
+                # with +00:00
+                if re.match(TZISO, since_date) is not None:
+                    pdate = datetime.fromisoformat(since_date)
+                # with +0000
+                elif re.match(TZPYTHON, since_date) is not None:
+                    pdate = datetime.strptime(since_date, "%Y-%m-%d %H:%M:%S%z")
+                # perhaps no TZ info? add as if UTC
+                else:
+                    pdate = datetime.strptime(since_date + "+0000", "%Y-%m-%d %H:%M:%S%z")
+                # convert to UTC
+                pdate = pdate.astimezone(timezone.utc)
             except ValueError:
                 log.error(f'Unable to convert date {since_date}')
                 return cors_response(HTTPStatus.BAD_REQUEST,
@@ -95,23 +119,35 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
                                                                  DbSshKey.owner_uuid == FabricPerson.uuid)
             query_result = query.all()
             for qk, qp in query_result:
-                k = SshKeyBastion()
-                k.status = 'active'
-                k.public_openssh = " ".join([qk.name, qk.public_key, qk.comment])
-                k.login = qp.bastion_login
-                ret.append(k)
+                try:
+                    k = SshKeyBastion()
+                    k.status = KeyStatus.active.name
+                    # for bastion update the comment to include expiration date/time
+                    k.public_openssh = " ".join([qk.name, qk.public_key,
+                                                 _make_bastion_comment(qk.comment, qk.expires_on)])
+                    k.login = qp.bastion_login
+                    ret.append(k)
+                except Exception:
+                    log.error(f'Unable to report new bastion key starting with {qk.public_key[0:100]} '
+                              f'for user {qp.bastion_login}')
 
             query = session.query(DbSshKey, FabricPerson).filter(DbSshKey.active == False,
-                                                                DbSshKey.deactivated_on > pdate,
+                                                                 DbSshKey.deactivated_on > pdate,
                                                                  DbSshKey.type == KeyType.bastion.name,
-                                                                DbSshKey.owner_uuid == FabricPerson.uuid)
+                                                                 DbSshKey.owner_uuid == FabricPerson.uuid)
             query_result = query.all()
             for qk, qp in query_result:
-                k = SshKeyBastion()
-                k.status = 'deactivated'
-                k.public_openssh = " ".join([qk.name, qk.public_key, qk.comment])
-                k.login = qp.bastion_login
-                ret.append(k)
+                try:
+                    k = SshKeyBastion()
+                    k.status = KeyStatus.deactivated.name
+                    # for bastion update the comment to include expiration date/time
+                    k.public_openssh = " ".join([qk.name, qk.public_key,
+                                                 _make_bastion_comment(qk.comment, qk.expires_on)])
+                    k.login = qp.bastion_login
+                    ret.append(k)
+                except Exception:
+                    log.error(f'Unable to report expired bastion key starting with {qk.public_key[0:100]} '
+                              f'for user {qp.bastion_login}')
 
             return ret
         finally:
@@ -389,7 +425,6 @@ def sshkeys_keytype_put(keytype: str, comment: str, description: str) -> SshKeyP
     # return to user the keypair
     return SshKeyPair(ret[0], ret[1])
 
-
 def _expire_keys(session=None):
     """
     Scan the keys and deactivate those that are expired.
@@ -407,7 +442,6 @@ def _expire_keys(session=None):
     else:
         raise RuntimeError('COmanage backend not yet implemented')
 
-
 def _garbage_collect_keys(session=None):
     """
     Delete deactivated keys older than specified period
@@ -420,7 +454,6 @@ def _garbage_collect_keys(session=None):
                                        DbSshKey.active == False).delete()
     else:
         raise RuntimeError('COmanage backend not yet implemented')
-
 
 def _fill_long_key(query_result) -> SshKeyLong:
 
@@ -438,7 +471,6 @@ def _fill_long_key(query_result) -> SshKeyLong:
         skl.deactivation_reason = query_result.deactivation_reason
     return skl
 
-
 def _store_ssh_key(_uuid: str, keytype:str, key: SshKeyShort) -> None:
     """
     Select where to store the ssh key - locally or in COmanage.
@@ -450,7 +482,6 @@ def _store_ssh_key(_uuid: str, keytype:str, key: SshKeyShort) -> None:
     else:
         log.debug(f'Storing key {key.name} in COmanage')
         _store_ssh_key_comanage(_uuid, keytype, key)
-
 
 def _store_ssh_key_local(_uuid: str, keytype: str, key: SshKeyShort) -> None:
     """
@@ -479,11 +510,9 @@ def _store_ssh_key_local(_uuid: str, keytype: str, key: SshKeyShort) -> None:
     finally:
         session.close()
 
-
 def _store_ssh_key_comanage(_uuid: str, keytype: str, key: SshKeyShort) -> None:
 
     pass
-
 
 def _check_key_qty(_uuid: str, keytype: str, session: Session) -> int:
     """
@@ -494,7 +523,6 @@ def _check_key_qty(_uuid: str, keytype: str, session: Session) -> int:
                                            DbSshKey.type == keytype)
     query_result = query.all()
     return len(query_result)
-
 
 def _check_unique(_uuid: str, fingerprint: str, session: Session) -> bool:
     """
@@ -508,7 +536,6 @@ def _check_unique(_uuid: str, fingerprint: str, session: Session) -> bool:
         return False
     return True
 
-
 def _bad_uuid(_uuid: str) -> bool:
     """
     Check that UUID (user or key) is reasonable.
@@ -517,3 +544,16 @@ def _bad_uuid(_uuid: str) -> bool:
     if len(_uuid) > 64:
         return True
     return False
+
+def _make_bastion_comment(comment: str, expires_on) -> str:
+    """
+    Return a new comment that is a concatenation of the original comment
+    with the expiration date for consumption on bastion hosts.
+    """
+    # we want to keep the comment under 100 character
+    # so we trim the original comment if needed:
+    # the date is 23 characters long: _(2021-11-18_10:17:05)_
+    # we don't ever want this to fail so someone can't construct
+    # a comment so the corresponding key can't be purged
+    ts = expires_on.strftime("_(%Y-%m-%d_%H:%M:%S%z)_")
+    return comment.strip()[0:COMMENT_LENGTH-len(ts)] + ts

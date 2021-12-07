@@ -173,6 +173,129 @@ def load_version_data():
     run_sql_commands(commands)
 
 
+def comanage_load_all_people2(do_database=True):
+    """
+    Load people from COmanage. Setting do_database to False
+    allows to test retrieving data from COmanage without writing to db
+    """
+    #
+    # Get a list of active OIDC subs
+    #
+    if do_database:
+        session = Session()
+    else:
+        session = None
+
+    try:
+        response_obj = co_api.copeople_view_per_co()
+        if not response_obj:
+            log.info('copeople_view_per_co returned no data, exiting')
+            return
+    except requests.HTTPError as e:
+        log.error(f"COmanage request exception {e} encountered in co_people_view_per_co, returning")
+        return
+
+    co_people = response_obj['CoPeople'] if response_obj.get('CoPeople', None) is not None else list()
+    # produce a list of tuples <oidc sub, coperson id> for each person
+    person_ids = list(map(lambda x: (x['ActorIdentifier'], x['Id']),
+                          filter(lambda x: x['Status'] == 'Active',
+                                 co_people)))
+
+    for ids in person_ids:
+        # ids[0] oidc claim sub (url)
+        # ids[1] copersonid (numeric)
+        # get the person's particulars and enter them in DB issuing a fresh GUID
+
+        # identifiers
+        try:
+            data = co_api.identifiers_view_per_entity(None, ids[1])
+            if not data:
+                continue
+        except requests.HTTPError as e:
+            log.error(f"COmanage request exception {e} encountered in identifiers.json")
+            continue
+
+        oidc_claim_sub = None
+        eppn = None
+
+        for identifier in data['Identifiers']:
+            if identifier['Type'] == 'oidcsub':
+                oidc_claim_sub = identifier['Identifier']
+                if oidc_claim_sub != ids[0]:
+                    log.warn(f"OIDC claim sub received from identifiers {oidc_claim_sub=} does not match one "
+                             f"received from people {ids[0]=}")
+                break
+            if identifier['Type'] == 'eppn':
+                eppn = identifier['Identifier']
+
+        if oidc_claim_sub is None:
+            oidc_claim_sub = ids[0]
+
+        # names
+        try:
+            response_obj = co_api.names_view_per_person(None, ids[1])
+            if not response_obj:
+                return 200, None
+        except requests.HTTPError as e:
+            log.error(f"COmanage request exception {e} encountered in names.json")
+            continue
+
+        names_list = response_obj.get('Names', None)
+        if names_list is None or len(names_list) == 0:
+            continue
+        # use the first name entry
+        names = names_list[0]
+        name = " ".join([names.get('Given', ""),
+                         names.get('Middle', ""),
+                         names.get('Family', ""),
+                         names.get('Suffix', "")])
+        if len(name) == 3:
+            name = 'No Name Given'
+
+        # strip extra spaces
+        name = re.sub(' +', ' ', name)
+
+        # email
+        email = None
+        try:
+            response_obj = co_api.email_addresses_view_per_person(None, ids[1])
+        except requests.HTTPError as e:
+            log.error(f'COmanage request exception {e} encountered in emails.json')
+            continue
+
+        try:
+            email = response_obj['EmailAddresses'][0]['Mail']
+        except KeyError:
+            pass
+
+        bastion_login = FABRICSSHKey.bastion_login(oidc_claim_sub, email)
+
+        people_uuid = uuid4()
+
+        if do_database:
+            log.info(f"Adding active person {oidc_claim_sub=}, {name=}, {eppn=}, "
+                     f"{email=} with GUID {people_uuid} and bastion login {bastion_login} to database")
+            dbperson = FabricPerson()
+            dbperson.uuid = people_uuid
+            dbperson.registered_on = datetime.datetime.utcnow()
+            dbperson.oidc_claim_sub = oidc_claim_sub
+            dbperson.email = email
+            dbperson.name = name
+            dbperson.eppn = eppn
+            dbperson.bastion_login = bastion_login
+
+            ret = insert_unique_person(dbperson, session)
+            if ret == InsertOutcome.DUPLICATE_UPDATED:
+                log.info(f"Updated a pre-existing entry for {dbperson.oidc_claim_sub} ({dbperson.name=})")
+            if ret != InsertOutcome.OK and ret != InsertOutcome.DUPLICATE_UPDATED:
+                log.error(f"Unable to add or update entry for {dbperson.oidc_claim_sub} due to {ret}. ")
+            session.commit()
+        else:
+            log.info(f"Skipping adding person {oidc_claim_sub=}, {name=}, {eppn=}, "
+                     f"{email=} with GUID {people_uuid} and bastion login {bastion_login} to database - "
+                     f"do_database flag is False")
+
+
 def comanage_load_all_people(do_database=True):
     """
     Load people from COmanage. Setting do_database to False
@@ -311,7 +434,7 @@ def load_people_data(mode):
     elif mode == 'rest':
         log.info("Using COmanage REST to load people data")
         # uses newer format and doesn't need the code below
-        comanage_load_all_people()
+        comanage_load_all_people2()
         return
     else:
         # leave everything untouched

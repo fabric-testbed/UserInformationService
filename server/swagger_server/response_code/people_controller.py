@@ -156,7 +156,7 @@ def people_whoami_get():  # noqa: E501
         # sometimes we don't get a name from the token
         # so get it from COmanage
         if person.name is None or len(person.name) == 0:
-            code, name = utils.comanage_get_person_name(co_person_id)
+            code, name = utils.comanage_get_person_name2(co_person_id)
             if name is not None:
                 setattr(person, 'name', name)
                 commit_needed = True
