@@ -4,5 +4,6 @@ The FABRIC User Information Service was designed using [Swagger OpenAPI Specific
 
 The source file on SwaggerHub should be used for any changes made to the specification, and then updated herein afterwards.
 
-Reference: https://app.swaggerhub.com/apis/fabric-testbed/user-information-service/1.0.0
-
+References: 
+- https://app.swaggerhub.com/apis/fabric-testbed/user-information-service/1.0.0
+- https://app.swaggerhub.com/apis/fabric-testbed/user-information-service/1.1.0
