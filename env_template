@@ -58,4 +58,5 @@ UIS_SSH_GARBAGE_COLLECT_AFTER_DAYS=10
 # for bastion host to have a shared secret when calling /bastionkeys
 UIS_SSH_KEY_SECRET="secret1"
 UIS_SSH_KEY_QTY_LIMIT=10
+UIS_SSH_SLIVER_KEY_TO_COMANAGE=false # can set to 'true' or 'yes'
 
