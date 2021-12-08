@@ -506,7 +506,7 @@ def comanage_check_person_couid(person_id, couid) -> Tuple[int, bool]:
     return 200, False
 
 
-def comanage_get_person_name(co_person_id) -> Tuple[int, str or None]:
+def comanage_get_person_name(co_person_id: int) -> Tuple[int, str or None]:
     """
     Sometimes CILogon doesn't give us a person name initially, but
     it should be there after enrollment in COmanage.

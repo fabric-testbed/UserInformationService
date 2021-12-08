@@ -189,6 +189,17 @@ def people_uuid_get(uuid):  # noqa: E501
 
     session = Session()
     try:
+        status, active_flag = utils.check_user_active(session, request.headers)
+        if status != 200:
+            log.error(f'Error {status} contacting COmanage in /uuid/oidc_claim_sub')
+            return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                 xerror=f'Error {status} contacting COmanage')
+
+        if not active_flag:
+            log.warn(f'User is not an active user in /uuid/oidc_claim_sub')
+            return cors_response(HTTPStatus.FORBIDDEN,
+                                 xerror='User not an active user')
+
         query = session.query(FabricPerson).filter(FabricPerson.uuid == uuid)
 
         query_result = query.all()

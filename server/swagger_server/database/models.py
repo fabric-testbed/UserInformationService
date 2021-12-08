@@ -24,7 +24,7 @@
 #
 # Author: Ilya Baldin (ibaldin@renci.org), Michael Stealey (stealey@renci.org)
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Table, TIMESTAMP, Boolean, Index
+from sqlalchemy import Column, Integer, String, ForeignKey, Table, Boolean, Index, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from enum import Enum, unique
@@ -49,7 +49,7 @@ class FabricPaper(Base):
     __tablename__ = 'fabric_papers'
 
     id = Column(Integer, primary_key=True)
-    registered_on = Column(TIMESTAMP)
+    registered_on = Column(DateTime(timezone=True))
     doi = Column(String)
     title = Column(String)
     authors_as_text = Column(String)
@@ -71,7 +71,7 @@ class FabricPerson(Base):
     __tablename__ = 'fabric_people'
 
     id = Column(Integer, primary_key=True)
-    registered_on = Column(TIMESTAMP)
+    registered_on = Column(DateTime(timezone=True))
     uuid = Column(String, unique=True)
     oidc_claim_sub = Column(String)
     name = Column(String)
@@ -79,7 +79,7 @@ class FabricPerson(Base):
     eppn = Column(String)
     bastion_login = Column(String)
     # store comanage ID here
-    co_person_id = Column(String)
+    co_person_id = Column(Integer)
     # preferences
     settings = Column(JSONB)
     permissions = Column(JSONB)
@@ -105,18 +105,17 @@ class DbSshKey(Base):
     name = Column(String)
     type = Column(String)
     fingerprint = Column(String)
-    created_on = Column(TIMESTAMP)
+    created_on = Column(DateTime(timezone=True))
     # NOTE: not clear this index is enough to optimize searches for expired keys
-    expires_on = Column(TIMESTAMP, index=True)
+    expires_on = Column(DateTime(timezone=True), index=True)
     active = Column(Boolean)
     deactivation_reason = Column(String)
-    deactivated_on = Column(TIMESTAMP)
+    deactivated_on = Column(DateTime(timezone=True))
     owner_uuid = Column(String, ForeignKey('fabric_people.uuid'))
     # if storing locally
     public_key = Column(String)
     # if storing in COmanage
     comanage_key_id = Column(String)
-    comanage_authenticator_id = Column(String)
 
     Index('idx_owner_keyid_keytype', 'type', 'owner_uuid', 'key_uuid')
     Index('idx_owner_fingerprint', 'owner_uuid', 'fingerprint')

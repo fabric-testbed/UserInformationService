@@ -20,23 +20,23 @@ tags:
 - name: people
   description: People known to FABRIC UIS
   externalDocs:
-    description: Private design docs
-    url: https://docs.google.com/document/d/1rqM4TNarqyO8JRg6nycX1Tyu7ctYzjzcTkjDKLs6G64/edit#
+    description: GitHub
+    url: https://github.com/fabric-testbed/UserInformationService
 - name: preferences
   description: Portal preference information
   externalDocs:
-    description: Private design docs
-    url: https://docs.google.com/document/d/1rqM4TNarqyO8JRg6nycX1Tyu7ctYzjzcTkjDKLs6G64/edit#
+    description: GitHub
+    url: https://github.com/fabric-testbed/UserInformationService
 - name: keys
   description: SSH key information
   externalDocs:
-    description: Private design docs
-    url: https://docs.google.com/document/d/1rqM4TNarqyO8JRg6nycX1Tyu7ctYzjzcTkjDKLs6G64/edit#
+    description: GitHub
+    url: https://github.com/fabric-testbed/UserInformationService
 - name: publications
   description: Publication information
   externalDocs:
-    description: Private design docs
-    url: https://docs.google.com/document/d/1rqM4TNarqyO8JRg6nycX1Tyu7ctYzjzcTkjDKLs6G64/edit#
+    description: GitHub
+    url: https://github.com/fabric-testbed/UserInformationService
 paths:
   /version:
     get:
@@ -752,21 +752,6 @@ components:
       example:
         private_openssh: private_openssh
         public_openssh: public_openssh
-    SshKeyShort:
-      properties:
-        key_uuid:
-          type: string
-        name:
-          type: string
-        comment:
-          type: string
-        description:
-          type: string
-        fingerprint:
-          type: string
-        public_key:
-          type: string
-      description: Public SSH key short version
     SshKeyLong:
       properties:
         key_uuid:
