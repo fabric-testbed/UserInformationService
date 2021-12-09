@@ -57,8 +57,7 @@ def people_get(person_name=None):  # noqa: E501
         return cors_response(HTTPStatus.BAD_REQUEST,
                              xerror='Insufficient number of characters or bad name')
 
-    session = Session()
-    try:
+    with Session() as session:
         status, active_flag = utils.check_user_active(session, request.headers)
         if status != 200:
             log.error(f'Problem {status} contacting COmanage for active user check in /people')
@@ -88,9 +87,6 @@ def people_get(person_name=None):  # noqa: E501
             response.append(ps)
 
         return response
-    finally:
-        if session is not None:
-            session.close()
 
 
 def people_whoami_get():  # noqa: E501
@@ -112,8 +108,7 @@ def people_whoami_get():  # noqa: E501
         return cors_response(HTTPStatus.FORBIDDEN,
                              xerror="No OIDC Claim Sub found or ID token missing")
 
-    session = Session()
-    try:
+    with Session() as session:
         query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
 
         query_result = query.all()
@@ -165,9 +160,6 @@ def people_whoami_get():  # noqa: E501
             session.commit()
 
         return utils.fill_people_long_from_person(person)
-    finally:
-        if session is not None:
-            session.close()
 
 
 def people_uuid_get(uuid):  # noqa: E501
@@ -187,8 +179,7 @@ def people_uuid_get(uuid):  # noqa: E501
         return cors_response(HTTPStatus.FORBIDDEN,
                              xerror="OIDC Claim Sub doesnt match UUID")
 
-    session = Session()
-    try:
+    with Session() as session:
         status, active_flag = utils.check_user_active(session, request.headers)
         if status != 200:
             log.error(f'Error {status} contacting COmanage in /uuid/oidc_claim_sub')
@@ -217,11 +208,6 @@ def people_uuid_get(uuid):  # noqa: E501
         person = query_result[0]
 
         return utils.fill_people_long_from_person(person)
-    finally:
-        if session is not None:
-            session.close()
-
-        session.close()
 
 
 def uuid_oidc_claim_sub_get(oidc_claim_sub):
@@ -234,8 +220,7 @@ def uuid_oidc_claim_sub_get(oidc_claim_sub):
 
     oidc_claim_sub = str(oidc_claim_sub).strip()
 
-    session = Session()
-    try:
+    with Session() as session:
         status, active_flag = utils.check_user_active(session, request.headers)
         if status != 200:
             log.error(f'Error {status} contacting COmanage in /uuid/oidc_claim_sub')
@@ -262,7 +247,3 @@ def uuid_oidc_claim_sub_get(oidc_claim_sub):
 
         person = query_result[0]
         return person.uuid
-    finally:
-        if session is not None:
-            session.close()
-

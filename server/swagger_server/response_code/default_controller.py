@@ -1,6 +1,7 @@
 from swagger_server.models.version import Version  # noqa: E501
-
-from .utils import dict_from_query
+from swagger_server.database.models import Version as DbVersion
+from swagger_server.response_code.utils import log
+from swagger_server.database import Session
 
 
 def version_get():  # noqa: E501
@@ -8,18 +9,9 @@ def version_get():  # noqa: E501
     version # noqa: E501
     :rtype: Version
     """
-    # response as Version()
-    response = Version()
 
-    sql = """
-    SELECT * from version
-    FETCH FIRST ROW ONLY;
-    """
+    with Session() as session:
+        log.info(f'Fetching version information')
+        query_result = session.query(DbVersion).one()
+        return Version(query_result.version, query_result.gitsha1)
 
-    # construct response object
-    dfq = dict_from_query(sql)[0]
-    print("[INFO] query database for version information")
-    response.version = dfq['version']
-    response.gitsha1 = dfq['gitsha1']
-
-    return response

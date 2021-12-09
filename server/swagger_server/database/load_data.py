@@ -23,19 +23,17 @@
 #
 #
 # Author: Ilya Baldin (ibaldin@renci.org) Michael Stealey (stealey@renci.org)
-from typing import List, Any
 from uuid import uuid4
 import datetime
 import re
 
 import psycopg2
 import requests
-from requests.auth import HTTPBasicAuth
 from ldap3 import Connection, Server, ALL
 
 from fss_utils.sshkey import FABRICSSHKey
 
-from swagger_server.database import Session, ldap_params, COID, COAPI_USER, COAPI_KEY, CO_REGISTRY_URL, co_api
+from swagger_server.database import Session, ldap_params, co_api
 from swagger_server.database.models import FabricPerson, AuthorID, InsertOutcome, insert_unique_person
 from . import __VERSION__, log
 
@@ -83,39 +81,19 @@ mock_people = [
     }
 ]
 
-
-def dict_from_query(query=None):
-    session = Session()
-    resultproxy = session.execute(query)
-    session.close()
-
-    d, a = {}, []
-    for rowproxy in resultproxy:
-        # rowproxy.items() returns an array like [(key0, value0), (key1, value1)]
-        for column, value in rowproxy.items():
-            # build up the dictionary
-            d = {**d, **{column: value}}
-        a.append(d)
-
-    return a
-
-
 def run_sql_commands(commands):
 
-    session = Session()
-    try:
-        if isinstance(commands, tuple):
-            for command in commands:
-                session.execute(command)
-        else:
-            session.execute(commands)
-        session.commit()
-        log.info("Data loaded successfully!")
-    except (Exception, psycopg2.DatabaseError) as error:
-        log.error(error)
-    finally:
-        if session is not None:
-            session.close()
+    with Session() as session:
+        try:
+            if isinstance(commands, tuple):
+                for command in commands:
+                    session.execute(command)
+            else:
+                session.execute(commands)
+            session.commit()
+            log.info("Data loaded successfully!")
+        except (Exception, psycopg2.DatabaseError) as error:
+            log.error(error)
 
 
 # Attributes to request from COmanage LDAP
@@ -181,10 +159,6 @@ def comanage_load_all_people(do_database=True):
     #
     # Get a list of active OIDC subs
     #
-    if do_database:
-        session = Session()
-    else:
-        session = None
 
     try:
         response_obj = co_api.copeople_view_per_co()
@@ -200,6 +174,11 @@ def comanage_load_all_people(do_database=True):
     person_ids = list(map(lambda x: (x['ActorIdentifier'], x['Id']),
                           filter(lambda x: x['Status'] == 'Active',
                                  co_people)))
+
+    if do_database:
+        session = Session()
+    else:
+        session = None
 
     for ids in person_ids:
         # ids[0] oidc claim sub (url)
@@ -294,6 +273,8 @@ def comanage_load_all_people(do_database=True):
             log.info(f"Skipping adding person {oidc_claim_sub=}, {name=}, {eppn=}, "
                      f"{email=} with GUID {people_uuid} and bastion login {bastion_login} to database - "
                      f"do_database flag is False")
+    if session:
+        session.close()
 
 
 def load_people_data(mode):
@@ -316,39 +297,38 @@ def load_people_data(mode):
         # leave everything untouched
         return
 
-    session = Session()
-
-    for person in people:
-        people_uuid = uuid4()
-        log.info(f"Adding {person.get('cn')} with GUID {people_uuid} to database")
-        dbperson = FabricPerson()
-        dbperson.uuid = people_uuid
-        dbperson.registered_on = datetime.datetime.utcnow()
-        dbperson.oidc_claim_sub = person.get('uid')
-        dbperson.email = person.get('mail')
-        dbperson.name = person.get('cn')
-        dbperson.eppn = person.get('eduPersonPrincipalName')
-        if person.get('settings', None) is not None:
-            dbperson.settings = person.get('settings')
-        if person.get('permissions', None) is not None:
-            dbperson.permissions = person.get('permissions')
-        if person.get('interests', None) is not None:
-            dbperson.interests = person.get('interests')
-        alt_ids = list()
-        if person.get('publons', None) is not None:
-            alt_ids.append(AuthorID(alt_id_type='publons',
-                                    alt_id_value=person.get('publons')))
-        if person.get('orcid', None) is not None:
-            alt_ids.append(AuthorID(alt_id_type='orcid',
-                                    alt_id_value=person.get('orcid')))
-        if person.get('scopus', None) is not None:
-            alt_ids.append(AuthorID(alt_id_type='scopus',
-                                    alt_id_value=person.get('orcid')))
-        dbperson.alt_ids = alt_ids
-        ret = insert_unique_person(dbperson, session)
-        if ret != InsertOutcome.OK and ret != InsertOutcome.DUPLICATE_UPDATED:
-            log.error(f"Unable to add entry for {dbperson.oidc_claim_sub} due to {ret}. ")
-    session.commit()
+    with Session() as session:
+        for person in people:
+            people_uuid = uuid4()
+            log.info(f"Adding {person.get('cn')} with GUID {people_uuid} to database")
+            dbperson = FabricPerson()
+            dbperson.uuid = people_uuid
+            dbperson.registered_on = datetime.datetime.utcnow()
+            dbperson.oidc_claim_sub = person.get('uid')
+            dbperson.email = person.get('mail')
+            dbperson.name = person.get('cn')
+            dbperson.eppn = person.get('eduPersonPrincipalName')
+            if person.get('settings', None) is not None:
+                dbperson.settings = person.get('settings')
+            if person.get('permissions', None) is not None:
+                dbperson.permissions = person.get('permissions')
+            if person.get('interests', None) is not None:
+                dbperson.interests = person.get('interests')
+            alt_ids = list()
+            if person.get('publons', None) is not None:
+                alt_ids.append(AuthorID(alt_id_type='publons',
+                                        alt_id_value=person.get('publons')))
+            if person.get('orcid', None) is not None:
+                alt_ids.append(AuthorID(alt_id_type='orcid',
+                                        alt_id_value=person.get('orcid')))
+            if person.get('scopus', None) is not None:
+                alt_ids.append(AuthorID(alt_id_type='scopus',
+                                        alt_id_value=person.get('orcid')))
+            dbperson.alt_ids = alt_ids
+            ret = insert_unique_person(dbperson, session)
+            if ret != InsertOutcome.OK and ret != InsertOutcome.DUPLICATE_UPDATED:
+                log.error(f"Unable to add entry for {dbperson.oidc_claim_sub} due to {ret}. ")
+        session.commit()
 
 
 if __name__ == '__main__':

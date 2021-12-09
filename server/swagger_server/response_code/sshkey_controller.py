@@ -110,10 +110,9 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
         log.error(f'Provided secret {secret} does not match the configured secret for /keylist endpoint')
         return cors_response(HTTPStatus.UNAUTHORIZED,
                              xerror='User not authorized')
-    session = Session()
-    try:
-        _expire_keys(session)
-        _garbage_collect_keys(session)
+    with Session() as session:
+        _update_keys(session)
+
         # first a list of new keys
         try:
             # with +00:00
@@ -170,9 +169,6 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
                           f'for user {qp.bastion_login}')
 
         return ret
-    finally:
-        session.commit()
-        session.close()
 
 
 def sshkeys_get() -> List[SshKeyLong]:  # noqa: E501
@@ -191,8 +187,7 @@ def sshkeys_get() -> List[SshKeyLong]:  # noqa: E501
         return cors_response(HTTPStatus.FORBIDDEN,
                              xerror='Unable to find UUID from OIDC Sub claim')
 
-    session = Session()
-    try:
+    with Session() as session:
         status, active_flag = utils.check_user_active(session, request.headers)
         if status != 200:
             log.error(f'Error {status} contacting COmanage in sshkeys_get')
@@ -204,8 +199,7 @@ def sshkeys_get() -> List[SshKeyLong]:  # noqa: E501
             return cors_response(HTTPStatus.FORBIDDEN,
                                  xerror='User not an active user')
 
-        _expire_keys(session)
-        _garbage_collect_keys(session)
+        _update_keys(session)
 
         query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
                                                DbSshKey.active == True)
@@ -216,9 +210,6 @@ def sshkeys_get() -> List[SshKeyLong]:  # noqa: E501
             ret.append(_fill_long_key(res))
 
         return ret
-    finally:
-        session.commit()
-        session.close()
 
 
 def sshkeys_keyid_delete(keyid: str) -> str:  # noqa: E501
@@ -241,8 +232,7 @@ def sshkeys_keyid_delete(keyid: str) -> str:  # noqa: E501
         return cors_response(HTTPStatus.FORBIDDEN,
                              xerror='Unable to find UUID from OIDC Sub claim')
 
-    session = Session()
-    try:
+    with Session() as session:
         status, active_flag = utils.check_user_active(session, request.headers)
         if status != 200:
             log.error(f'Error {status} contacting COmanage in sshkeys_keyid_delete')
@@ -253,6 +243,7 @@ def sshkeys_keyid_delete(keyid: str) -> str:  # noqa: E501
             log.warn(f'User is not an active user in sshkeys_keyid_delete')
             return cors_response(HTTPStatus.FORBIDDEN,
                                  xerror='User not an active user')
+        _update_keys(session)
 
         query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
                                                DbSshKey.key_uuid == keyid,
@@ -266,9 +257,6 @@ def sshkeys_keyid_delete(keyid: str) -> str:  # noqa: E501
         session.commit()
 
         return "OK"
-
-    finally:
-        session.close()
 
 
 def sshkey_uuid_keyid_get(_uuid: str, keyid: str) -> SshKeyLong:  # noqa: E501
@@ -291,8 +279,7 @@ def sshkey_uuid_keyid_get(_uuid: str, keyid: str) -> SshKeyLong:  # noqa: E501
         return cors_response(HTTPStatus.BAD_REQUEST,
                              xerror='Supplied keyid {0} is not valid.'.format(keyid))
 
-    session = Session()
-    try:
+    with Session() as session:
         status, active_flag = utils.check_user_active(session, request.headers)
         if status != 200:
             log.error(f'Error {status} contacting COmanage in sshkeys_uuid_keyid_get')
@@ -304,8 +291,7 @@ def sshkey_uuid_keyid_get(_uuid: str, keyid: str) -> SshKeyLong:  # noqa: E501
             return cors_response(HTTPStatus.FORBIDDEN,
                                  xerror='User not an active user')
 
-        _expire_keys(session)
-        _garbage_collect_keys(session)
+        _update_keys(session)
 
         query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
                                                DbSshKey.active == True,
@@ -319,10 +305,6 @@ def sshkey_uuid_keyid_get(_uuid: str, keyid: str) -> SshKeyLong:  # noqa: E501
                                  xerror='Key {0} not found for user {1}'.format(keyid, _uuid))
 
         return _fill_long_key(query_result[0])
-
-    finally:
-        session.commit()
-        session.close()
 
 
 def sshkey_keyid_get(keyid: str) -> SshKeyLong:  # noqa: E501
@@ -345,8 +327,7 @@ def sshkey_keyid_get(keyid: str) -> SshKeyLong:  # noqa: E501
         return cors_response(HTTPStatus.FORBIDDEN,
                              xerror='Unable to find UUID from OIDC Sub claim')
 
-    session = Session()
-    try:
+    with Session() as session:
         status, active_flag = utils.check_user_active(session, request.headers)
         if status != 200:
             log.error(f'Error {status} contacting COmanage in sshkeys_keyid_get')
@@ -358,8 +339,7 @@ def sshkey_keyid_get(keyid: str) -> SshKeyLong:  # noqa: E501
             return cors_response(HTTPStatus.FORBIDDEN,
                                  xerror='User not an active user')
 
-        _expire_keys(session)
-        _garbage_collect_keys(session)
+        _update_keys(session)
 
         query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
                                                DbSshKey.key_uuid == keyid)
@@ -372,10 +352,6 @@ def sshkey_keyid_get(keyid: str) -> SshKeyLong:  # noqa: E501
                                  xerror='Key {0} not found for user {1}'.format(keyid, _uuid))
 
         return _fill_long_key(query_result[0])
-
-    finally:
-        session.commit()
-        session.close()
 
 
 def sshkeys_keytype_post(keytype: str, public_openssh: str, description: str) -> str:  # noqa: E501
@@ -393,8 +369,14 @@ def sshkeys_keytype_post(keytype: str, public_openssh: str, description: str) ->
         return cors_response(HTTPStatus.FORBIDDEN,
                              xerror='Unable to find UUID from OIDC Sub claim')
 
-    session = Session()
-    try:
+    with Session() as session:
+        # checks are in this order on purpose so we do the cheapest checks first
+
+        if _check_key_qty(_uuid, keytype, session) >= SSH_KEY_QTY_LIMIT:
+            log.error(f'Too many keys of type {keytype} for user {_uuid}, limit {SSH_KEY_QTY_LIMIT}')
+            return cors_response(HTTPStatus.BAD_REQUEST,
+                                 xerror=f'Too many active keys for this user, limit {SSH_KEY_QTY_LIMIT}')
+
         status, active_flag = utils.check_user_active(session, request.headers)
         if status != 200:
             log.error(f'Error {status} contacting COmanage in sshkeys_keytype_post')
@@ -407,7 +389,18 @@ def sshkeys_keytype_post(keytype: str, public_openssh: str, description: str) ->
                                  xerror='User not an active user')
 
         # instantiate to test its validity
-        fssh = FABRICSSHKey(public_openssh)
+        try:
+            fssh = FABRICSSHKey(public_openssh)
+        except FABRICSSHKeyException as e:
+            log.error(f'Provided key for {_uuid} is invalid due to {str(e)}')
+            return cors_response(HTTPStatus.BAD_REQUEST,
+                                 xerror=f'Provided key for {_uuid} is invalid due to {str(e)}')
+
+        if not _check_unique(_uuid, fssh.get_fingerprint(), session):
+            log.error(f'Provided key for {_uuid} with fingerprint {fssh.get_fingerprint()} is not unique')
+            return cors_response(HTTPStatus.BAD_REQUEST,
+                                 xerror=f'Provided key for {_uuid} with fingerprint '
+                                        f'{fssh.get_fingerprint()} is not unique')
 
         short_key = SshKeyShort()
         short_key.name = fssh.name
@@ -420,23 +413,6 @@ def sshkeys_keytype_post(keytype: str, public_openssh: str, description: str) ->
             return cors_response(HTTPStatus.BAD_REQUEST,
                                  xerror=f'Provided description does not match expected REGEX {DESCRIPTION_REGEX}')
         short_key.description = description
-
-        if not _check_unique(_uuid, short_key.fingerprint, session):
-            log.error(f'Provided key for {_uuid} with fingerprint {short_key.fingerprint} is not unique')
-            return cors_response(HTTPStatus.BAD_REQUEST,
-                                 xerror=f'Provided key for {_uuid} with fingerprint '
-                                        f'{short_key.fingerprint} is not unique')
-        if _check_key_qty(_uuid, keytype, session) >= SSH_KEY_QTY_LIMIT:
-            log.error(f'Too many keys of type {keytype} for user {_uuid}, limit {SSH_KEY_QTY_LIMIT}')
-            return cors_response(HTTPStatus.BAD_REQUEST,
-                                 xerror=f'Too many active keys for this user, limit {SSH_KEY_QTY_LIMIT}')
-    except FABRICSSHKeyException as e:
-        log.error(f'Provided key for {_uuid} is invalid due to {str(e)}')
-        return cors_response(HTTPStatus.BAD_REQUEST,
-                             xerror=f'Provided key for {_uuid} is invalid due to {str(e)}')
-    finally:
-        if session is not None:
-            session.close()
 
     _store_ssh_key(_uuid, keytype, short_key)
 
@@ -458,8 +434,7 @@ def sshkeys_keytype_put(keytype: str, comment: str, description: str) -> SshKeyP
         return cors_response(HTTPStatus.FORBIDDEN,
                              xerror='Unable to find UUID from OIDC Sub claim')
 
-    session = Session()
-    try:
+    with Session() as session:
         status, active_flag = utils.check_user_active(session, request.headers)
         if status != 200:
             log.error(f'Error {status} contacting COmanage in sshkeys_keytype_put')
@@ -470,9 +445,6 @@ def sshkeys_keytype_put(keytype: str, comment: str, description: str) -> SshKeyP
             log.warn(f'User is not an active user in sshkeys_keytype_put')
             return cors_response(HTTPStatus.FORBIDDEN,
                                  xerror='User not an active user')
-    finally:
-        if session is not None:
-            session.close()
 
     log.info(f'Generating key of type {keytype} for {_uuid} with comment {comment}')
     try:
@@ -502,13 +474,28 @@ def sshkeys_keytype_put(keytype: str, comment: str, description: str) -> SshKeyP
     return SshKeyPair(ret[0], ret[1])
 
 
+def _update_keys(session):
+    """
+    Make an atomic update - expire keys, then garbage collect
+    """
+
+    session.begin_nested()
+    # https://stackoverflow.com/questions/37331646/sqlalchemy-explicit-locking-of-postgresql-table
+    session.execute('LOCK TABLE fabric_sshkeys IN ACCESS EXCLUSIVE MODE;')
+    _expire_keys(session)
+    session.flush()
+    _garbage_collect_keys(session)
+    session.commit()
+    # close nested transaction and unlock table
+    session.commit()
+
+
 def _expire_keys(session):
     """
     Scan the keys and deactivate those that are expired.
     """
     now = datetime.now(timezone.utc)
-    query = session.query(DbSshKey).filter(DbSshKey.expires_on < now,
-                                           DbSshKey.active == True)
+    query = session.query(DbSshKey).filter(DbSshKey.expires_on < now, DbSshKey.active == True)
     query_result = query.all()
     log.info(f'Expiring {len(query.all())} keys')
     for q in query_result:
@@ -525,9 +512,10 @@ def _garbage_collect_keys(session):
     gc_delta = timedelta(minutes=SSH_GARBAGE_COLLECT_AFTER_DAYS)
     check_instant = now - gc_delta
     if SSH_SLIVER_KEY_TO_COMANAGE:
-        query = session.query(DbSshKey).filter(DbSshKey.deactivated_on < check_instant,
-                                               DbSshKey.active == False,
-                                               DbSshKey.type == KeyType.sliver.name)
+        query = session.query(DbSshKey).\
+            filter(DbSshKey.deactivated_on < check_instant,
+                   DbSshKey.active == False,
+                   DbSshKey.type == KeyType.sliver.name)
         query_result = query.all()
         for q in query_result:
             log.info(f'Removing expired sliver key {q.comment}/{q.key_uuid} for user {q.owner_uuid} from COmanage')
@@ -537,8 +525,9 @@ def _garbage_collect_keys(session):
                 log.error(f'Unable to delete expired sliver key {q.key_uuid}/{q.key_uuid} for user {q.owner_uuid} '
                           f'from COmanage due to: {e}')
 
-    session.query(DbSshKey).filter(DbSshKey.deactivated_on < check_instant,
-                                   DbSshKey.active == False).delete()
+    session.query(DbSshKey).\
+        filter(DbSshKey.deactivated_on < check_instant,
+               DbSshKey.active == False).delete()
 
 
 def _fill_long_key(query_result) -> SshKeyLong:
@@ -578,12 +567,10 @@ def _store_ssh_key(_uuid: str, keytype: str, key: SshKeyShort) -> None:
     # bastion or sliver
     db_key.type = keytype
 
-    session = Session()
-    try:
+    with Session() as session:
         # did we want to store copy of sliver key in COmanage?
         if SSH_SLIVER_KEY_TO_COMANAGE and keytype == KeyType.sliver.name:
             log.debug(f'Storing sliver key {db_key.comment} for user {_uuid} in COmanage')
-            db_key.comanage_key_id = None
             query = session.query(FabricPerson).filter(FabricPerson.uuid == _uuid)
             query_result = query.all()
             if len(query_result) == 0:
@@ -620,8 +607,6 @@ def _store_ssh_key(_uuid: str, keytype: str, key: SshKeyShort) -> None:
 
         session.add(db_key)
         session.commit()
-    finally:
-        session.close()
 
 
 def _check_key_qty(_uuid: str, keytype: str, session: Session) -> int:

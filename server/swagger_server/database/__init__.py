@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-__VERSION__ = "1.0.1"
+__VERSION__ = "1.1.0"
 
 import logging
 
@@ -48,7 +48,7 @@ if db_params.get('disable_database', None) == 'true':
 
 # even if database is disabled its harmless and then imports everywhere are not affected
 print(f"Creating POSTGRES ENGINE with parameters {db_params}")
-POSTGRES_ENGINE = 'postgres://' + db_params['user'] + ':' + db_params['password'] \
+POSTGRES_ENGINE = 'postgresql://' + db_params['user'] + ':' + db_params['password'] \
                   + '@' + db_params['host'] + ':' + db_params['port'] \
                   + '/' + db_params['db']
 
@@ -63,4 +63,3 @@ Session = sessionmaker(bind=engine)
 Base = declarative_base()
 metadata = Base.metadata
 
-TIMEZONE = 'America/New_York'

@@ -51,22 +51,20 @@ database entries onto API returns and assisting in authorization.
 
 
 def dict_from_query(query=None):
-    session = Session()
-    a = None
-    try:
-        resultproxy = session.execute(query)
-        d, a = {}, []
-        for rowproxy in resultproxy:
-            # rowproxy.items() returns an array like [(key0, value0), (key1, value1)]
-            for column, value in rowproxy.items():
-                # build up the dictionary
-                d = {**d, **{column: value}}
-            a.append(d)
-    except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
-    finally:
-        if session is not None:
-            session.close()
+
+    with Session() as session:
+        a = None
+        try:
+            resultproxy = session.execute(query)
+            d, a = {}, []
+            for rowproxy in resultproxy:
+                # rowproxy.items() returns an array like [(key0, value0), (key1, value1)]
+                for column, value in rowproxy.items():
+                    # build up the dictionary
+                    d = {**d, **{column: value}}
+                a.append(d)
+        except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
 
     return a
 

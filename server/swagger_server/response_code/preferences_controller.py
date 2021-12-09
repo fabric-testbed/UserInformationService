@@ -61,8 +61,7 @@ def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
         return cors_response(HTTPStatus.BAD_REQUEST,
                              xerror='Invalid parameter')
 
-    session = Session()
-    try:
+    with Session() as session:
         query = session.query(FabricPerson).filter(FabricPerson.uuid == uuid)
 
         query_result = query.all()
@@ -89,9 +88,6 @@ def preferences_preftype_uuid_get(preftype, uuid):  # noqa: E501
                                  xerror='DB return not a JSON dictionary as preference')
 
         return response
-    finally:
-        if session is not None:
-            session.close()
 
 
 def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E501
@@ -114,8 +110,7 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E5
         return cors_response(HTTPStatus.BAD_REQUEST,
                              xerror='Invalid preference type {0}'.format(str(preftype)))
 
-    session = Session()
-    try:
+    with Session() as session:
         query = session.query(FabricPerson).filter(FabricPerson.uuid == uuid)
 
         query_result = query.all()
@@ -137,9 +132,6 @@ def preferences_preftype_uuid_put(uuid, preftype, preferences=None):  # noqa: E5
         session.commit()
 
         return OKRETURN
-    finally:
-        if session is not None:
-            session.close()
 
 
 def preferences_uuid_get(uuid):  # noqa: E501
@@ -156,8 +148,7 @@ def preferences_uuid_get(uuid):  # noqa: E501
         return cors_response(HTTPStatus.FORBIDDEN,
                              xerror='OIDC Claim Sub doesnt match UUID')
 
-    session = Session()
-    try:
+    with Session() as session:
         query = session.query(FabricPerson).filter(FabricPerson.uuid == uuid)
 
         query_result = query.all()
@@ -178,6 +169,3 @@ def preferences_uuid_get(uuid):  # noqa: E501
                                permissions=utils.dict_from_json_handle_none(person.permissions),
                                interests=utils.dict_from_json_handle_none(person.interests))
         return response
-    finally:
-        if session is not None:
-            session.close()
