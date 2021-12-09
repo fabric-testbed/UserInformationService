@@ -6,6 +6,7 @@ from datetime import date, datetime  # noqa: F401
 from typing import List, Dict  # noqa: F401
 
 from swagger_server.models.base_model_ import Model
+from swagger_server.models.ssh_key_type import SshKeyType  # noqa: F401,E501
 from swagger_server import util
 
 
@@ -14,21 +15,23 @@ class SshKeyLong(Model):
 
     Do not edit the class manually.
     """
-    def __init__(self, key_uuid: str=None, public_key: str=None, name: str=None, comment: str=None, description: str=None, fingerprint: str=None, created_on: str=None, expires_on: str=None, deactivated_on: str=None, deactivation_reason: str=None):  # noqa: E501
+    def __init__(self, key_uuid: str=None, public_key: str=None, ssh_key_type: str=None, comment: str=None, description: str=None, fingerprint: str=None, fabric_key_type: SshKeyType=None, created_on: str=None, expires_on: str=None, deactivated_on: str=None, deactivation_reason: str=None):  # noqa: E501
         """SshKeyLong - a model defined in Swagger
 
         :param key_uuid: The key_uuid of this SshKeyLong.  # noqa: E501
         :type key_uuid: str
         :param public_key: The public_key of this SshKeyLong.  # noqa: E501
         :type public_key: str
-        :param name: The name of this SshKeyLong.  # noqa: E501
-        :type name: str
+        :param ssh_key_type: The ssh_key_type of this SshKeyLong.  # noqa: E501
+        :type ssh_key_type: str
         :param comment: The comment of this SshKeyLong.  # noqa: E501
         :type comment: str
         :param description: The description of this SshKeyLong.  # noqa: E501
         :type description: str
         :param fingerprint: The fingerprint of this SshKeyLong.  # noqa: E501
         :type fingerprint: str
+        :param fabric_key_type: The fabric_key_type of this SshKeyLong.  # noqa: E501
+        :type fabric_key_type: SshKeyType
         :param created_on: The created_on of this SshKeyLong.  # noqa: E501
         :type created_on: str
         :param expires_on: The expires_on of this SshKeyLong.  # noqa: E501
@@ -41,10 +44,11 @@ class SshKeyLong(Model):
         self.swagger_types = {
             'key_uuid': str,
             'public_key': str,
-            'name': str,
+            'ssh_key_type': str,
             'comment': str,
             'description': str,
             'fingerprint': str,
+            'fabric_key_type': SshKeyType,
             'created_on': str,
             'expires_on': str,
             'deactivated_on': str,
@@ -54,10 +58,11 @@ class SshKeyLong(Model):
         self.attribute_map = {
             'key_uuid': 'key_uuid',
             'public_key': 'public_key',
-            'name': 'name',
+            'ssh_key_type': 'ssh_key_type',
             'comment': 'comment',
             'description': 'description',
             'fingerprint': 'fingerprint',
+            'fabric_key_type': 'fabric_key_type',
             'created_on': 'created_on',
             'expires_on': 'expires_on',
             'deactivated_on': 'deactivated_on',
@@ -65,10 +70,11 @@ class SshKeyLong(Model):
         }
         self._key_uuid = key_uuid
         self._public_key = public_key
-        self._name = name
+        self._ssh_key_type = ssh_key_type
         self._comment = comment
         self._description = description
         self._fingerprint = fingerprint
+        self._fabric_key_type = fabric_key_type
         self._created_on = created_on
         self._expires_on = expires_on
         self._deactivated_on = deactivated_on
@@ -128,25 +134,25 @@ class SshKeyLong(Model):
         self._public_key = public_key
 
     @property
-    def name(self) -> str:
-        """Gets the name of this SshKeyLong.
+    def ssh_key_type(self) -> str:
+        """Gets the ssh_key_type of this SshKeyLong.
 
 
-        :return: The name of this SshKeyLong.
+        :return: The ssh_key_type of this SshKeyLong.
         :rtype: str
         """
-        return self._name
+        return self._ssh_key_type
 
-    @name.setter
-    def name(self, name: str):
-        """Sets the name of this SshKeyLong.
+    @ssh_key_type.setter
+    def ssh_key_type(self, ssh_key_type: str):
+        """Sets the ssh_key_type of this SshKeyLong.
 
 
-        :param name: The name of this SshKeyLong.
-        :type name: str
+        :param ssh_key_type: The ssh_key_type of this SshKeyLong.
+        :type ssh_key_type: str
         """
 
-        self._name = name
+        self._ssh_key_type = ssh_key_type
 
     @property
     def comment(self) -> str:
@@ -210,6 +216,27 @@ class SshKeyLong(Model):
         """
 
         self._fingerprint = fingerprint
+
+    @property
+    def fabric_key_type(self) -> SshKeyType:
+        """Gets the fabric_key_type of this SshKeyLong.
+
+
+        :return: The fabric_key_type of this SshKeyLong.
+        :rtype: SshKeyType
+        """
+        return self._fabric_key_type
+
+    @fabric_key_type.setter
+    def fabric_key_type(self, fabric_key_type: SshKeyType):
+        """Sets the fabric_key_type of this SshKeyLong.
+
+
+        :param fabric_key_type: The fabric_key_type of this SshKeyLong.
+        :type fabric_key_type: SshKeyType
+        """
+
+        self._fabric_key_type = fabric_key_type
 
     @property
     def created_on(self) -> str:

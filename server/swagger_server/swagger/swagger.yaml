@@ -758,7 +758,7 @@ components:
           type: string
         public_key:
           type: string
-        name:
+        ssh_key_type:
           type: string
         comment:
           type: string
@@ -766,6 +766,8 @@ components:
           type: string
         fingerprint:
           type: string
+        fabric_key_type:
+          $ref: '#/components/schemas/SshKeyType'
         created_on:
           type: string
         expires_on:
@@ -777,11 +779,12 @@ components:
       description: Public SSH key long version
       example:
         public_key: public_key
+        ssh_key_type: ssh_key_type
         deactivation_reason: deactivation_reason
         key_uuid: key_uuid
+        fabric_key_type: sliver
         created_on: created_on
         expires_on: expires_on
-        name: name
         fingerprint: fingerprint
         description: description
         comment: comment

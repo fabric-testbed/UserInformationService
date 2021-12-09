@@ -78,15 +78,15 @@ class KeyStatus(Enum):
 @dataclass
 class SshKeyShort:
     # name, comment and public key can be stored locally or in COmanage
-    name: str
+    ssh_key_type: str
     comment: str
     public_key: str
     # description and fingerprint must be stored locally
     description: str
     fingerprint: str
 
-    def __init__(self, name=None, comment=None, public_key=None, description=None, fingerprint=None):
-        self.name = name
+    def __init__(self, ssh_key_type=None, comment=None, public_key=None, description=None, fingerprint=None):
+        self.ssh_key_type = ssh_key_type
         self.comment = comment
         self.public_key = public_key
         self.description = description
@@ -134,7 +134,7 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
         ret = list()
         query = session.query(DbSshKey, FabricPerson).filter(DbSshKey.active == True,
                                                              DbSshKey.created_on > pdate,
-                                                             DbSshKey.type == KeyType.bastion.name,
+                                                             DbSshKey.fabric_key_type == KeyType.bastion.name,
                                                              DbSshKey.owner_uuid == FabricPerson.uuid)
         query_result = query.all()
         for qk, qp in query_result:
@@ -142,7 +142,7 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
                 k = SshKeyBastion()
                 k.status = KeyStatus.active.name
                 # for bastion update the comment to include expiration date/time
-                k.public_openssh = " ".join([qk.name, qk.public_key,
+                k.public_openssh = " ".join([qk.ssh_key_type, qk.public_key,
                                              _make_bastion_comment(qk.comment, qk.expires_on)])
                 k.login = qp.bastion_login
                 ret.append(k)
@@ -152,7 +152,7 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
 
         query = session.query(DbSshKey, FabricPerson).filter(DbSshKey.active == False,
                                                              DbSshKey.deactivated_on > pdate,
-                                                             DbSshKey.type == KeyType.bastion.name,
+                                                             DbSshKey.fabric_key_type == KeyType.bastion.name,
                                                              DbSshKey.owner_uuid == FabricPerson.uuid)
         query_result = query.all()
         for qk, qp in query_result:
@@ -160,7 +160,7 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
                 k = SshKeyBastion()
                 k.status = KeyStatus.deactivated.name
                 # for bastion update the comment to include expiration date/time
-                k.public_openssh = " ".join([qk.name, qk.public_key,
+                k.public_openssh = " ".join([qk.ssh_key_type, qk.public_key,
                                              _make_bastion_comment(qk.comment, qk.expires_on)])
                 k.login = qp.bastion_login
                 ret.append(k)
@@ -254,6 +254,15 @@ def sshkeys_keyid_delete(keyid: str) -> str:  # noqa: E501
                 q.active = False
                 q.deactivation_reason = f'Deactivated by owner on {datetime.now(timezone.utc)}Z'
                 q.deactivated_on = datetime.now(timezone.utc)
+                if SSH_SLIVER_KEY_TO_COMANAGE and q.fabric_key_type == KeyType.sliver.name:
+                    log.info(f'Removing deleted sliver key {q.comment}/{q.key_uuid} '
+                             f'for user {q.owner_uuid} from COmanage')
+                    try:
+                        co_api.ssh_keys_delete(q.comanage_key_id)
+                    except requests.HTTPError as e:
+                        log.error(
+                            f'Unable to delete expired sliver key {q.key_uuid}/{q.key_uuid} for user {q.owner_uuid} '
+                            f'from COmanage due to: {e}')
         session.commit()
 
         return "OK"
@@ -403,7 +412,7 @@ def sshkeys_keytype_post(keytype: str, public_openssh: str, description: str) ->
                                         f'{fssh.get_fingerprint()} is not unique')
 
         short_key = SshKeyShort()
-        short_key.name = fssh.name
+        short_key.ssh_key_type = fssh.name
         short_key.comment = fssh.comment
         short_key.public_key = fssh.public_key
         short_key.fingerprint = fssh.get_fingerprint()
@@ -455,7 +464,7 @@ def sshkeys_keytype_put(keytype: str, comment: str, description: str) -> SshKeyP
                              xerror=f'Unable to generate a new key for {_uuid} due to {str(e)}')
 
     short_key = SshKeyShort()
-    short_key.name = fssh.name
+    short_key.ssh_key_type = fssh.name
     short_key.public_key = fssh.public_key
     short_key.comment = fssh.comment
     matches = re.match(DESCRIPTION_REGEX, description)
@@ -502,6 +511,13 @@ def _expire_keys(session):
         q.deactivated_on = now
         q.deactivation_reason = f'Key automatically expired on {now}Z'
         q.active = False
+        if SSH_SLIVER_KEY_TO_COMANAGE and q.fabric_key_type == KeyType.sliver.name:
+            log.info(f'Removing expired sliver key {q.comment}/{q.key_uuid} for user {q.owner_uuid} from COmanage')
+            try:
+                co_api.ssh_keys_delete(q.comanage_key_id)
+            except requests.HTTPError as e:
+                log.error(f'Unable to delete expired sliver key {q.key_uuid}/{q.key_uuid} for user {q.owner_uuid} '
+                          f'from COmanage due to: {e}')
 
 
 def _garbage_collect_keys(session):
@@ -511,20 +527,6 @@ def _garbage_collect_keys(session):
     now = datetime.now(timezone.utc)
     gc_delta = timedelta(minutes=SSH_GARBAGE_COLLECT_AFTER_DAYS)
     check_instant = now - gc_delta
-    if SSH_SLIVER_KEY_TO_COMANAGE:
-        query = session.query(DbSshKey).\
-            filter(DbSshKey.deactivated_on < check_instant,
-                   DbSshKey.active == False,
-                   DbSshKey.type == KeyType.sliver.name)
-        query_result = query.all()
-        for q in query_result:
-            log.info(f'Removing expired sliver key {q.comment}/{q.key_uuid} for user {q.owner_uuid} from COmanage')
-            try:
-                co_api.ssh_keys_delete(q.comanage_key_id)
-            except requests.HTTPError as e:
-                log.error(f'Unable to delete expired sliver key {q.key_uuid}/{q.key_uuid} for user {q.owner_uuid} '
-                          f'from COmanage due to: {e}')
-
     session.query(DbSshKey).\
         filter(DbSshKey.deactivated_on < check_instant,
                DbSshKey.active == False).delete()
@@ -533,7 +535,7 @@ def _garbage_collect_keys(session):
 def _fill_long_key(query_result) -> SshKeyLong:
 
     skl = SshKeyLong()
-    skl.name = query_result.name
+    skl.ssh_key_type = query_result.ssh_key_type
     skl.description = query_result.description
     skl.comment = query_result.comment
     skl.key_uuid = query_result.key_uuid
@@ -541,6 +543,7 @@ def _fill_long_key(query_result) -> SshKeyLong:
     skl.created_on = str(query_result.created_on)
     skl.expires_on = str(query_result.expires_on)
     skl.fingerprint = query_result.fingerprint
+    skl.fabric_key_type = query_result.fabric_key_type
     if not query_result.active:
         skl.deactivated_on = str(query_result.deactivated_on)
         skl.deactivation_reason = query_result.deactivation_reason
@@ -555,7 +558,8 @@ def _store_ssh_key(_uuid: str, keytype: str, key: SshKeyShort) -> None:
     db_key = DbSshKey()
     db_key.owner_uuid = _uuid
     db_key.key_uuid = str(uuid4())
-    db_key.name = key.name
+    # ssh-rsa or whatever it is
+    db_key.ssh_key_type = key.ssh_key_type
     db_key.description = key.description
     db_key.comment = key.comment
     db_key.public_key = key.public_key
@@ -565,7 +569,7 @@ def _store_ssh_key(_uuid: str, keytype: str, key: SshKeyShort) -> None:
     db_key.active = True
     db_key.fingerprint = key.fingerprint
     # bastion or sliver
-    db_key.type = keytype
+    db_key.fabric_key_type = keytype
 
     with Session() as session:
         # did we want to store copy of sliver key in COmanage?
@@ -590,9 +594,9 @@ def _store_ssh_key(_uuid: str, keytype: str, key: SshKeyShort) -> None:
                         # update the person table in database with co_person_id while we're at it
                         setattr(person, 'co_person_id', co_person_id)
                         log.debug(f'Adding sliver key {db_key.comment} for user {_uuid}/{co_person_id} '
-                                  f'to COmanage [ {key.public_key=}, {key.name=}, {key.comment=}')
+                                  f'to COmanage [ {key.public_key=}, {key.ssh_key_type=}, {key.comment=}')
                         co_key_response = co_api.ssh_keys_add(query_result[0].co_person_id,
-                                                     key.public_key, key.name, key.comment)
+                                                              key.public_key, key.ssh_key_type, key.comment)
                     else:
                         log.warn(f'Unable to add sliver key {db_key.comment} for user '
                                  f'{_uuid} due to missing co_person_id')
@@ -615,7 +619,7 @@ def _check_key_qty(_uuid: str, keytype: str, session: Session) -> int:
     """
     query = session.query(DbSshKey).filter(DbSshKey.owner_uuid == _uuid,
                                            DbSshKey.active == True,
-                                           DbSshKey.type == keytype)
+                                           DbSshKey.fabric_key_type == keytype)
     query_result = query.all()
     return len(query_result)
 

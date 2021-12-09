@@ -102,8 +102,8 @@ class DbSshKey(Base):
     # SSH public key has name, public_key and label in that order
     # e.g. 'ssh-dss <base 64 encoded public key> mykey'
     description = Column(String)
-    name = Column(String)
-    type = Column(String)
+    ssh_key_type = Column(String)
+    fabric_key_type = Column(String)
     fingerprint = Column(String)
     created_on = Column(DateTime(timezone=True))
     # NOTE: not clear this index is enough to optimize searches for expired keys
