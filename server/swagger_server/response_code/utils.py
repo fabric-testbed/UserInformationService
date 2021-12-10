@@ -456,7 +456,7 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, int or None
 
     # they may also have bastion_login missing
     bastion_login = None
-    if person.bastion_login is None:
+    if person.bastion_login is None or len(person.bastion_login) == 0:
         bastion_login = FABRICSSHKey.bastion_login(person.oidc_claim_sub, email)
     code, active_flag = comanage_check_person_couid(person_id, CO_ACTIVE_USERS_COU)
     return code, active_flag, person_id, bastion_login
