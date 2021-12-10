@@ -131,7 +131,7 @@ def people_whoami_get():  # noqa: E501
 
         person = query_result[0]
         # check with COmanage they are an active user
-        status, active_flag, co_person_id = utils.comanage_check_active_person(person)
+        status, active_flag, co_person_id, bastion_login = utils.comanage_check_active_person(person)
         if status != 200:
             log.error(f'Error {status} contacting comanage in /whoami')
             return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -141,6 +141,10 @@ def people_whoami_get():  # noqa: E501
         if co_person_id is not None:
             # (over)write Id to the database (fresh value or after a purge)
             setattr(person, 'co_person_id', co_person_id)
+            commit_needed = True
+
+        if bastion_login is not None:
+            setattr(person, 'bastion_login', bastion_login)
             commit_needed = True
 
         if not active_flag:
