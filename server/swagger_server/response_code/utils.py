@@ -399,11 +399,16 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, int or None
                   f'with person id {person.co_person_id} against active COU {CO_ACTIVE_USERS_COU}')
         code, active_flag = comanage_check_person_couid(person.co_person_id, CO_ACTIVE_USERS_COU)
 
+        # they may also have bastion_login missing
+        bastion_login = None
+        if person.bastion_login is None:
+            bastion_login = FABRICSSHKey.bastion_login(person.oidc_claim_sub, person.email)
+
         # if everything OK and user active, return immediately, otherwise
         # fall through and try to find the person and update their co_person_id (may happen
         # if they were purged from comanage)
         if code == 200 and active_flag:
-            return code, active_flag, None, None
+            return code, active_flag, None, bastion_login
 
     # if email is present, try that first
     people_list = []
@@ -454,11 +459,13 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, int or None
         # person id not available
         return 200, False, None, None
 
+    code, active_flag = comanage_check_person_couid(person_id, CO_ACTIVE_USERS_COU)
+
     # they may also have bastion_login missing
     bastion_login = None
-    if person.bastion_login is None or len(person.bastion_login) == 0:
+    if person.bastion_login is None:
         bastion_login = FABRICSSHKey.bastion_login(person.oidc_claim_sub, email)
-    code, active_flag = comanage_check_person_couid(person_id, CO_ACTIVE_USERS_COU)
+
     return code, active_flag, person_id, bastion_login
 
 
