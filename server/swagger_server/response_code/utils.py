@@ -313,7 +313,6 @@ def create_new_fabric_person_from_token(headers, check_unique=False):
         dbperson.oidc_claim_sub = decoded.get(SUB_CLAIM)
         dbperson.name = decoded.get(NAME_CLAIM)
         dbperson.email = decoded.get(EMAIL_CLAIM)
-
         dbperson.bastion_login = FABRICSSHKey.bastion_login(dbperson.oidc_claim_sub, dbperson.email)
         if check_unique:
             ret = insert_unique_person(dbperson, session)
@@ -357,6 +356,7 @@ def fill_people_long_from_person(person):
     response.name = person.name
     response.email = person.email
     response.oidc_claim_sub = person.oidc_claim_sub
+    response.bastion_login = person.bastion_login
     if person.eppn != 'None':
         response.eppn = person.eppn
     else:
