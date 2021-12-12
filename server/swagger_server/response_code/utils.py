@@ -385,13 +385,13 @@ def fill_people_short_from_person(person):
     return ps
 
 
-def comanage_check_active_person(person) -> Tuple[int, bool or None, int or None, str or None]:
+def comanage_check_active_person(person) -> Tuple[int, bool or None, int or None]:
     """
     Try to figure out person's co_person_id from different attributes.
     Returns COmanage status code, a boolean for whether person is active
     and string id to store back in the database for next time.
-    Returns a tuple: [return code, person active bool, co_person_id int, bastion login str]
-    If either of the last two is None, means no need to update, if set - should be updated in db
+    Returns a tuple: [return code, person active bool, co_person_id int]
+    If the last one is None, means no need to update, if set - should be updated in db
     """
     # if person_id is present, skip the line
     if person.co_person_id is not None:
@@ -399,16 +399,11 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, int or None
                   f'with person id {person.co_person_id} against active COU {CO_ACTIVE_USERS_COU}')
         code, active_flag = comanage_check_person_couid(person.co_person_id, CO_ACTIVE_USERS_COU)
 
-        # they may also have bastion_login missing
-        bastion_login = None
-        if person.bastion_login is None:
-            bastion_login = FABRICSSHKey.bastion_login(person.oidc_claim_sub, person.email)
-
         # if everything OK and user active, return immediately, otherwise
         # fall through and try to find the person and update their co_person_id (may happen
         # if they were purged from comanage)
         if code == 200 and active_flag:
-            return code, active_flag, None, bastion_login
+            return code, active_flag, None
 
     # if email is present, try that first
     people_list = []
@@ -420,9 +415,9 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, int or None
         code, people_list = comanage_list_people_matches(email=email)
         if code == 204:
             # nothing found
-            return 200, False, None, None
+            return 200, False, None
         if code != 200:
-            return code, False, None, None
+            return code, False, None
     else:
         if person.name is not None:
             name_split = person.name.split(' ')
@@ -437,9 +432,9 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, int or None
             code, people_list = comanage_list_people_matches(given=fname, family=lname)
             if code == 204:
                 # nothing found
-                return 200, False, None, None
+                return 200, False, None
             if code != 200:
-                return code, False, None, None
+                return code, False, None
     person_id = None
     oidcsub_found = False
     for people in people_list:
@@ -457,16 +452,11 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, int or None
         log.debug(f'Unable to identify a person {person.oidc_claim_sub} from the list (of length {len(people_list)}) '
                   f'of COmanage matches. OIDC sub found flag is {oidcsub_found}.')
         # person id not available
-        return 200, False, None, None
+        return 200, False, None
 
     code, active_flag = comanage_check_person_couid(person_id, CO_ACTIVE_USERS_COU)
 
-    # they may also have bastion_login missing
-    bastion_login = None
-    if person.bastion_login is None:
-        bastion_login = FABRICSSHKey.bastion_login(person.oidc_claim_sub, email)
-
-    return code, active_flag, person_id, bastion_login
+    return code, active_flag, person_id
 
 
 def comanage_list_people_matches(given: str = None, family: str = None, email: str = None) -> Tuple[int, List]:
@@ -565,7 +555,7 @@ def check_user_active(session, headers) -> Tuple[int, bool]:
 
     person = query_result[0]
     # check with COmanage they are an active user
-    status, active_flag, _, _ = comanage_check_active_person(person)
+    status, active_flag, _ = comanage_check_active_person(person)
     return status, active_flag
 
 

@@ -36,6 +36,7 @@ from swagger_server.models.people_long import PeopleLong  # noqa: E501
 from swagger_server import QUERY_CHARACTER_MIN, QUERY_LIMIT
 import swagger_server.response_code.utils as utils
 from swagger_server.response_code.utils import log
+from fss_utils.sshkey import FABRICSSHKey
 
 
 def people_get(person_name=None):  # noqa: E501
@@ -131,7 +132,7 @@ def people_whoami_get():  # noqa: E501
 
         person = query_result[0]
         # check with COmanage they are an active user
-        status, active_flag, co_person_id, bastion_login = utils.comanage_check_active_person(person)
+        status, active_flag, co_person_id = utils.comanage_check_active_person(person)
         if status != 200:
             log.error(f'Error {status} contacting comanage in /whoami')
             return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
@@ -140,11 +141,12 @@ def people_whoami_get():  # noqa: E501
         commit_needed = False
         if co_person_id is not None:
             # (over)write Id to the database (fresh value or after a purge)
-            setattr(person, 'co_person_id', co_person_id)
+            person.co_person_id = co_person_id
             commit_needed = True
 
-        if bastion_login is not None:
-            setattr(person, 'bastion_login', bastion_login)
+        # they may also have bastion_login missing
+        if person.bastion_login is None:
+            person.bastion_login = FABRICSSHKey.bastion_login(person.oidc_claim_sub, person.email)
             commit_needed = True
 
         if not active_flag:

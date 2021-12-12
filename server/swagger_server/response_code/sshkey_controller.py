@@ -588,7 +588,7 @@ def _store_ssh_key(_uuid: str, keytype: str, key: SshKeyShort) -> None:
                     if co_person_id is None:
                         log.info(f'Looking up co_person_id in _store_ssh_key for person {person.uuid}')
                         # we already know they are active
-                        _, _, co_person_id, _ = utils.comanage_check_active_person(person)
+                        _, _, co_person_id = utils.comanage_check_active_person(person)
 
                     if co_person_id is not None:
                         # update the person table in database with co_person_id while we're at it
