@@ -1,0 +1,739 @@
+---
+openapi: 3.0.3
+info:
+  title: User Information Service
+  description: FABRIC User Information Service
+  termsOfService: None
+  contact:
+    name: Ilya Baldin
+    url: https://www.fabric-testbed.net
+    email: ibaldin@renci.org
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  version: 1.1.0
+servers:
+- url: http://127.0.0.1:5000/
+  description: local development
+- url: https://virtserver.swaggerhub.com/fabric-testbed/user-information-service/1.1.0
+  description: SwaggerHub API Auto Mocking
+tags:
+- name: people
+  description: People known to FABRIC UIS
+  externalDocs:
+    description: GitHub
+    url: https://github.com/fabric-testbed/UserInformationService
+- name: preferences
+  description: Portal preference information
+  externalDocs:
+    description: GitHub
+    url: https://github.com/fabric-testbed/UserInformationService
+- name: keys
+  description: SSH key information
+  externalDocs:
+    description: GitHub
+    url: https://github.com/fabric-testbed/UserInformationService
+- name: publications
+  description: Publication information
+  externalDocs:
+    description: GitHub
+    url: https://github.com/fabric-testbed/UserInformationService
+paths:
+  /version:
+    get:
+      tags:
+      - default
+      summary: version (open)
+      description: Version
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+  /uuid/oidc_claim_sub:
+    get:
+      tags:
+      - people
+      summary: get person UUID based on their OIDC claim sub (open to any valid user)
+      description: person UUID based on their OIDC claim sub
+      parameters:
+      - name: oidc_claim_sub
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
+  /people:
+    get:
+      tags:
+      - people
+      summary: list of people (open to any valid user)
+      description: List of people
+      parameters:
+      - name: person_name
+        in: query
+        description: Search People by Name (ILIKE)
+        required: false
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/People_short'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
+  /people/whoami:
+    get:
+      tags:
+      - people
+      summary: Details about self from OIDC Claim sub provided in ID token; Creates new entry; (open only to self)
+      description: Details about self based on key OIDC Claim sub contained in ID token; Creates new entry
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/People_long'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
+  /people/{uuid}:
+    get:
+      tags:
+      - people
+      summary: person details by UUID (open only to self)
+      description: Person details by UUID
+      parameters:
+      - name: uuid
+        in: path
+        description: People identifier as UUID
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/People_long'
+        "400":
+          description: Bad request. People ID must be in uuid-4 format
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: A Person with the specified ID was not found
+        "5XX":
+          description: Unexpected error
+  /preferences/{preftype}/{uuid}:
+    get:
+      tags:
+      - preferences
+      summary: get user preferences of specific type (settings, permissions or interests; open only to self)
+      description: User preferences (returns sane defaults if user valid, but preferences not available)
+      parameters:
+      - name: preftype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/PreferenceType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+        "204":
+          description: Preference not found
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Person/UUID not found
+        "5XX":
+          description: Unexpected error
+    put:
+      tags:
+      - preferences
+      summary: update user preferences by type (open only to self)
+      description: Update specific type of user preferences
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: preftype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/PreferenceType'
+      - name: preferences
+        in: query
+        required: true
+        style: deepObject
+        explode: false
+        schema:
+          type: object
+          additionalProperties: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: A User with the specified ID was not found
+        "5XX":
+          description: Unexpected error
+  /preferences/{uuid}:
+    get:
+      tags:
+      - preferences
+      summary: get all user preferences as an object (open only to self)
+      description: Get all preferences for a user
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Preferences'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Person/UUID not found
+        "5XX":
+          description: Unexpected error
+  /authorids/{uuid}:
+    get:
+      tags:
+      - publications
+      summary: get user's author IDs (Scopus, Orcid etc.; open only to self)
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AuthorId'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Person matching UUID not found
+        "5XX":
+          description: Unexpected error
+  /authorids/{idtype}/{uuid}:
+    get:
+      tags:
+      - publications
+      summary: get users specific author ID (open only to self)
+      parameters:
+      - name: idtype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/AuthorIdType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "204":
+          description: This type author ID not found
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Person with UUID not found
+        "5XX":
+          description: Unexpected error
+    put:
+      tags:
+      - publications
+      summary: update user's specific author ID (open only to self)
+      parameters:
+      - name: idtype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/AuthorIdType'
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: idval
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
+  /sshkey/{keytype}:
+    put:
+      tags:
+      - sshkeys
+      summary: Generate a new SSH key of specified type. Return both public and private portions. (open only to self)
+      parameters:
+      - name: keytype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/SshKeyType'
+      - name: comment
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      - name: description
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SshKeyPair'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+    post:
+      tags:
+      - sshkeys
+      summary: Add a user-provided ssh public key of specified type. (open only to self)
+      parameters:
+      - name: keytype
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          $ref: '#/components/schemas/SshKeyType'
+      - name: public_openssh
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      - name: description
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+  /sshkey/{uuid}/{keyid}:
+    get:
+      tags:
+      - sshkeys
+      summary: Get a specific key of a given user (open to any valid user)
+      parameters:
+      - name: uuid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      - name: keyid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SshKeyLong'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+  /sshkey/{keyid}:
+    get:
+      tags:
+      - sshkeys
+      summary: get metadata, including expiration date for this key based on key UUID (open only to self)
+      parameters:
+      - name: keyid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SshKeyLong'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Key not found
+        "5XX":
+          description: Unexpected error
+    delete:
+      tags:
+      - sshkeys
+      summary: Delete a specified key based on key UUID (open only to self)
+      parameters:
+      - name: keyid
+        in: path
+        required: true
+        style: simple
+        explode: false
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: People not found
+        "5XX":
+          description: Unexpected error
+  /sshkeys:
+    get:
+      tags:
+      - sshkeys
+      summary: Get a list of all active/non-expired keys of this user (open to self)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SshKeyLong'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+  /bastionkeys:
+    get:
+      tags:
+      - sshkeys
+      summary: Get a list of bastion keys that were created, deactivated or expired since specified date in UTC (open to Bastion hosts)
+      parameters:
+      - name: secret
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      - name: since_date
+        in: query
+        required: true
+        style: form
+        explode: true
+        schema:
+          type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SshKeyBastion'
+        "400":
+          description: Bad request
+        "401":
+          description: Authorization information is missing or invalid
+        "404":
+          description: Keys not found
+        "5XX":
+          description: Unexpected error
+components:
+  schemas:
+    Version:
+      properties:
+        version:
+          type: string
+        gitsha1:
+          type: string
+    People_short:
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        eppn:
+          type: string
+        oidc_claim_sub:
+          type: string
+    People_long:
+      properties:
+        uuid:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        eppn:
+          type: string
+        oidc_claim_sub:
+          type: string
+        bastion_login:
+          type: string
+        prefs:
+          $ref: '#/components/schemas/Preferences'
+    Preferences:
+      properties:
+        settings:
+          type: object
+        permissions:
+          type: object
+        interests:
+          type: object
+    SshKeyPair:
+      properties:
+        private_openssh:
+          type: string
+        public_openssh:
+          type: string
+      description: SSH Key Pair
+    SshKeyLong:
+      properties:
+        key_uuid:
+          type: string
+        public_key:
+          type: string
+        ssh_key_type:
+          type: string
+        comment:
+          type: string
+        description:
+          type: string
+        fingerprint:
+          type: string
+        fabric_key_type:
+          $ref: '#/components/schemas/SshKeyType'
+        created_on:
+          type: string
+        expires_on:
+          type: string
+        deactivated_on:
+          type: string
+        deactivation_reason:
+          type: string
+      description: Public SSH key long version
+    SshKeyBastion:
+      properties:
+        public_openssh:
+          type: string
+        login:
+          type: string
+        status:
+          $ref: '#/components/schemas/SshKeyStatus'
+      description: SSH key info for bastion host
+    SshKeyType:
+      type: string
+      description: Type of SSH key
+      enum:
+      - sliver
+      - bastion
+    SshKeyStatus:
+      type: string
+      description: Status of SSH key
+      enum:
+      - deactivated
+      - expired
+      - active
+    AuthorIdType:
+      type: string
+      description: Different possible types of author IDs
+      enum:
+      - orcid
+      - publons
+      - scopus
+    AuthorId:
+      properties:
+        idtype:
+          $ref: '#/components/schemas/AuthorIdType'
+        idvalue:
+          type: string
+      description: Tuple describing an author ID (type and value)
+    PreferenceType:
+      type: string
+      description: Portal preferences come in a small number of flavors
+      enum:
+      - settings
+      - permissions
+      - interests
