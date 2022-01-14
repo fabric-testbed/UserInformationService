@@ -97,6 +97,26 @@ in UIS local database.
 
 Details of COmanage API can be found [here](https://spaces.at.internet2.edu/display/COmanage/CoPerson+API).
  
+# SSH Key Management
+
+This is probably the most complex part of UIS. UIS stores two types of keys: "sliver" and "bastion".
+It only stores the _public_ portion of the key. It can generate new keypairs using a preconfigured
+algorithm (rsa or ecdsa) with preset key lengths. When generating a keypair the private portion of the
+key is returned to the user, it is never stored on UIS. 
+
+Both key types have separately configurable expiration periods specified in days. Sliver public keys
+are stored in UIS purely as a convenience features, which allows users to then query it for these
+public keys. Users can query other users public sliver keys so they can e.g. propagate them into
+their slices. Bastion keys are only visible to their user owners. Bastion keys are periodically propagated
+to bastion hosts using the [Bastion Key Client script](https://github.com/fabric-testbed/BastionKeyClient).
+
+When keys expire (regardless of type) they are kept in the database locally using a predefined garbage
+collection period (in days). This is to prevent key reuse and for forensics. 
+
+UIS can be configured to push sliver keys (only sliver keys) to COmanage to associate with user records. 
+
+There is a configurable limit on the number of keys of each type that can be stored per user.
+
 # Testing
 
 Setup your env_template. Then run `docker-compose -f <compose file> --env-file <env file> up`.
