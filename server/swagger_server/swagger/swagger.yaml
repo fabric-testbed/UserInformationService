@@ -795,10 +795,13 @@ components:
           type: string
         login:
           type: string
+        gecos:
+          type: string
         status:
           $ref: '#/components/schemas/SshKeyStatus'
       description: SSH key info for bastion host
       example:
+        gecos: gecos
         public_openssh: public_openssh
         login: login
         status: deactivated

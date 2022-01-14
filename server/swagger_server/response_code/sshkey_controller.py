@@ -40,11 +40,11 @@ from fss_utils.http_errors import cors_response
 from fss_utils.sshkey import FABRICSSHKey, FABRICSSHKeyException
 
 from swagger_server import SSH_SLIVER_KEY_TO_COMANAGE, SSH_KEY_ALGORITHM, SSH_BASTION_KEY_VALIDITY_DAYS, \
-    SSH_GARBAGE_COLLECT_AFTER_DAYS, SSH_KEY_SECRET, SSH_KEY_QTY_LIMIT, co_api
+    SSH_SLIVER_KEY_VALIDITY_DAYS, SSH_GARBAGE_COLLECT_AFTER_DAYS, SSH_KEY_SECRET, SSH_KEY_QTY_LIMIT, co_api
 from swagger_server.database import Session
 
 import swagger_server.response_code.utils as utils
-from swagger_server.response_code.utils import log
+from swagger_server.response_code.utils import log, get_gecos
 
 from swagger_server.database.models import DbSshKey, FabricPerson
 
@@ -107,7 +107,7 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
     (b) deactivated since _date.
     """
     if secret != SSH_KEY_SECRET:
-        log.error(f'Provided secret {secret} does not match the configured secret for /keylist endpoint')
+        log.error(f'Provided secret {secret} does not match the configured secret for the endpoint')
         return cors_response(HTTPStatus.UNAUTHORIZED,
                              xerror='User not authorized')
     with Session() as session:
@@ -115,6 +115,7 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
 
         # first a list of new keys
         try:
+            since_date = since_date.strip()
             # with +00:00
             if re.match(TZISO, since_date) is not None:
                 pdate = datetime.fromisoformat(since_date)
@@ -131,6 +132,7 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
             return cors_response(HTTPStatus.BAD_REQUEST,
                                  xerror=f'Provided date {since_date} is invalid.')
 
+        log.info(f'Using time {pdate} to search for new or expired keys.')
         ret = list()
         query = session.query(DbSshKey, FabricPerson).filter(DbSshKey.active == True,
                                                              DbSshKey.created_on > pdate,
@@ -139,16 +141,22 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
         query_result = query.all()
         for qk, qp in query_result:
             try:
+                log.debug(f'Found new key created on {qk.created_on} for user {qp.bastion_login}')
                 k = SshKeyBastion()
                 k.status = KeyStatus.active.name
                 # for bastion update the comment to include expiration date/time
                 k.public_openssh = " ".join([qk.ssh_key_type, qk.public_key,
                                              _make_bastion_comment(qk.comment, qk.expires_on)])
                 k.login = qp.bastion_login
+                # GECOS is a 5-field comma-separated field that includes things like full name
+                # various locations, phone numbers and emails. External email is part of the 5th field
+                k.gecos = get_gecos(qp)
                 ret.append(k)
             except Exception:
                 log.error(f'Unable to report new bastion key starting with {qk.public_key[0:100]} '
                           f'for user {qp.bastion_login}')
+                return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                     xerror='Unable to report bastion keys due to internal error.')
 
         query = session.query(DbSshKey, FabricPerson).filter(DbSshKey.active == False,
                                                              DbSshKey.deactivated_on > pdate,
@@ -157,16 +165,20 @@ def bastionkeys_get(secret, since_date) -> List[SshKeyBastion]:
         query_result = query.all()
         for qk, qp in query_result:
             try:
+                log.debug(f'Found expired key deactivated on {qk.deactivated_on} for user {qp.bastion_login}')
                 k = SshKeyBastion()
                 k.status = KeyStatus.deactivated.name
                 # for bastion update the comment to include expiration date/time
                 k.public_openssh = " ".join([qk.ssh_key_type, qk.public_key,
                                              _make_bastion_comment(qk.comment, qk.expires_on)])
                 k.login = qp.bastion_login
+                k.gecos = get_gecos(qp)
                 ret.append(k)
             except Exception:
                 log.error(f'Unable to report expired bastion key starting with {qk.public_key[0:100]} '
                           f'for user {qp.bastion_login}')
+                return cors_response(HTTPStatus.INTERNAL_SERVER_ERROR,
+                                     xerror='Unable to report bastion keys due to internal error.')
 
         return ret
 
@@ -525,7 +537,7 @@ def _garbage_collect_keys(session):
     Delete deactivated keys older than specified period (from db and COmanage)
     """
     now = datetime.now(timezone.utc)
-    gc_delta = timedelta(minutes=SSH_GARBAGE_COLLECT_AFTER_DAYS)
+    gc_delta = timedelta(days=SSH_GARBAGE_COLLECT_AFTER_DAYS)
     check_instant = now - gc_delta
     session.query(DbSshKey).\
         filter(DbSshKey.deactivated_on < check_instant,
@@ -558,13 +570,15 @@ def _store_ssh_key(_uuid: str, keytype: str, key: SshKeyShort) -> None:
     db_key = DbSshKey()
     db_key.owner_uuid = _uuid
     db_key.key_uuid = str(uuid4())
-    # ssh-rsa or whatever it is
     db_key.ssh_key_type = key.ssh_key_type
     db_key.description = key.description
     db_key.comment = key.comment
     db_key.public_key = key.public_key
     db_key.created_on = datetime.now(timezone.utc)
-    exp_delta = timedelta(minutes=SSH_BASTION_KEY_VALIDITY_DAYS)
+    if keytype == KeyType.sliver.name:
+        exp_delta = timedelta(days=SSH_SLIVER_KEY_VALIDITY_DAYS)
+    else:
+        exp_delta = timedelta(days=SSH_BASTION_KEY_VALIDITY_DAYS)
     db_key.expires_on = db_key.created_on + exp_delta
     db_key.active = True
     db_key.fingerprint = key.fingerprint

@@ -15,29 +15,34 @@ class SshKeyBastion(Model):
 
     Do not edit the class manually.
     """
-    def __init__(self, public_openssh: str=None, login: str=None, status: SshKeyStatus=None):  # noqa: E501
+    def __init__(self, public_openssh: str=None, login: str=None, gecos: str=None, status: SshKeyStatus=None):  # noqa: E501
         """SshKeyBastion - a model defined in Swagger
 
         :param public_openssh: The public_openssh of this SshKeyBastion.  # noqa: E501
         :type public_openssh: str
         :param login: The login of this SshKeyBastion.  # noqa: E501
         :type login: str
+        :param gecos: The gecos of this SshKeyBastion.  # noqa: E501
+        :type gecos: str
         :param status: The status of this SshKeyBastion.  # noqa: E501
         :type status: SshKeyStatus
         """
         self.swagger_types = {
             'public_openssh': str,
             'login': str,
+            'gecos': str,
             'status': SshKeyStatus
         }
 
         self.attribute_map = {
             'public_openssh': 'public_openssh',
             'login': 'login',
+            'gecos': 'gecos',
             'status': 'status'
         }
         self._public_openssh = public_openssh
         self._login = login
+        self._gecos = gecos
         self._status = status
 
     @classmethod
@@ -92,6 +97,27 @@ class SshKeyBastion(Model):
         """
 
         self._login = login
+
+    @property
+    def gecos(self) -> str:
+        """Gets the gecos of this SshKeyBastion.
+
+
+        :return: The gecos of this SshKeyBastion.
+        :rtype: str
+        """
+        return self._gecos
+
+    @gecos.setter
+    def gecos(self, gecos: str):
+        """Sets the gecos of this SshKeyBastion.
+
+
+        :param gecos: The gecos of this SshKeyBastion.
+        :type gecos: str
+        """
+
+        self._gecos = gecos
 
     @property
     def status(self) -> SshKeyStatus:

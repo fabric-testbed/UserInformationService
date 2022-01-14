@@ -585,3 +585,15 @@ def comanage_get_person_identifier(co_person_id, identifier_type) -> str or None
                 break
     return person_id
 
+
+def get_gecos(person) -> str:
+    """
+    Produce a GECOS-formatted string based on db person info
+    """
+    return ','.join([
+        person.name.strip(),  # Full Name
+        '',  # Building, room number
+        '',  # Office telephone
+        '',  # Home telephone
+        person.email.strip() if person.email else person.eppn.strip() if person.eppn else ''  # external email or other contact info
+    ])
