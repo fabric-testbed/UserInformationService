@@ -227,6 +227,12 @@ an entry for a person exists, it is simply updated with name/email/eppn attribut
 are added. When using this, be sure to set it back to `false` after a restart, lest you forget it and next time
 UIS is restarted for some reason, database will be dropped again. 
 
+# Developing API clients
+
+As part of [Bastion Key Client](https://github.com/fabric-testbed/BastionKeyClient/tree/main/python-client-generated) the auto-generated 
+swagger client is pushed to PyPi. To develop API clients install `pip3 install uis-swagger-client` first.
+
+
 # References
 
 - Swagger: [https://swagger.io](https://swagger.io)
