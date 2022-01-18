@@ -3,6 +3,8 @@ import datetime
 
 from swagger_server import encoder
 
+from comanage_api import ComanageApi
+
 from fss_utils.jwt_validate import ValidateCode, JWTValidator
 
 from swagger_server.database import metadata
@@ -34,6 +36,11 @@ elif app_params.get('user_data', None) == 'ldap':
     LOAD_USER_DATA = 'ldap'
 elif app_params.get('user_data', None) == 'rest':
     LOAD_USER_DATA = 'rest'
+
+SSH_KEY_QTY_LIMIT = 10
+if app_params.get('ssh_key_qty_limit', None) is not None:
+    SSH_KEY_QTY_LIMIT = int(app_params.get('ssh_key_qty_limit'))
+log.info(f'Using a limit of {SSH_KEY_QTY_LIMIT} keys of any type as maximum per user')
 
 USER_DB_DROP = False
 if app_params.get('user_db_drop', None) == 'true' or \
@@ -73,6 +80,40 @@ COID = app_params.get("coid")
 CO_ACTIVE_USERS_COU = app_params.get("co_active_users_cou")
 # registry URL
 CO_REGISTRY_URL = app_params.get("co_registry_url")
+# COmanage ORG
+CO_NAME = app_params.get("co_name")
+# SSH Key Authenticator ID
+CO_SSH_AUTHENTICATOR_ID = app_params.get("co_ssh_authenticator_id")
+
+co_api = ComanageApi(
+    co_api_url=CO_REGISTRY_URL,
+    co_api_user=COAPI_USER,
+    co_api_pass=COAPI_KEY,
+    co_api_org_id=COID,
+    co_api_org_name=CO_NAME,
+    co_ssh_key_authenticator_id=CO_SSH_AUTHENTICATOR_ID
+)
+
+# get SSH key parameters
+SSH_KEY_ALGORITHM = "rsa"  # can use 'rsa' or 'ecdsa'
+SSH_SLIVER_KEY_TO_COMANAGE = False # "true" or "yes"
+SSH_BASTION_KEY_VALIDITY_DAYS = 30
+SSH_SLIVER_KEY_VALIDITY_DAYS = 180
+SSH_GARBAGE_COLLECT_AFTER_DAYS = 30
+SSH_KEY_SECRET = "secret"
+if app_params.get('ssh_key_algorithm', None) is not None:
+    SSH_KEY_ALGORITHM = app_params.get('ssh_key_algorithm')
+if app_params.get('ssh_sliver_key_to_comanage', None) == 'true' or \
+        app_params.get('ssh_sliver_key_to_comanage', None) == 'yes':
+    SSH_SLIVER_KEY_TO_COMANAGE = True
+if app_params.get('ssh_bastion_key_validity_days', None) is not None:
+    SSH_BASTION_KEY_VALIDITY_DAYS = int(app_params.get('ssh_bastion_key_validity_days'))
+if app_params.get('ssh_sliver_key_validity_days', None) is not None:
+    SSH_SLIVER_KEY_VALIDITY_DAYS = int(app_params.get('ssh_sliver_key_validity_days'))
+if app_params.get('ssh_garbage_collect_after_days', None) is not None:
+    SSH_GARBAGE_COLLECT_AFTER_DAYS = int(app_params.get('ssh_garbage_collect_after_days'))
+if app_params.get('ssh_key_secret', None) is not None:
+    SSH_KEY_SECRET = app_params.get('ssh_key_secret')
 
 # for testing e.g. comanage code we don't need the database running
 if not DISABLE_DATABASE:

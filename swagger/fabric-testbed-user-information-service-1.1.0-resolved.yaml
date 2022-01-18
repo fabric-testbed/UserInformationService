@@ -1,3 +1,4 @@
+---
 openapi: 3.0.3
 info:
   title: User Information Service
@@ -44,7 +45,6 @@ paths:
       - default
       summary: version (open)
       description: Version
-      operationId: version_get
       responses:
         "200":
           description: OK
@@ -52,14 +52,12 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Version'
-      x-openapi-router-controller: swagger_server.controllers.default_controller
   /uuid/oidc_claim_sub:
     get:
       tags:
       - people
       summary: get person UUID based on their OIDC claim sub (open to any valid user)
       description: person UUID based on their OIDC claim sub
-      operationId: uuid_oidc_claim_sub_get
       parameters:
       - name: oidc_claim_sub
         in: query
@@ -75,7 +73,6 @@ paths:
             application/json:
               schema:
                 type: string
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -84,14 +81,12 @@ paths:
           description: People not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.people_controller
   /people:
     get:
       tags:
       - people
       summary: list of people (open to any valid user)
       description: List of people
-      operationId: people_get
       parameters:
       - name: person_name
         in: query
@@ -110,7 +105,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/People_short'
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -119,16 +113,12 @@ paths:
           description: People not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.people_controller
   /people/whoami:
     get:
       tags:
       - people
-      summary: Details about self from OIDC Claim sub provided in ID token; Creates
-        new entry; (open only to self)
-      description: Details about self based on key OIDC Claim sub contained in ID
-        token; Creates new entry
-      operationId: people_whoami_get
+      summary: Details about self from OIDC Claim sub provided in ID token; Creates new entry; (open only to self)
+      description: Details about self based on key OIDC Claim sub contained in ID token; Creates new entry
       responses:
         "200":
           description: OK
@@ -138,7 +128,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/People_long'
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -147,14 +136,12 @@ paths:
           description: People not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.people_controller
   /people/{uuid}:
     get:
       tags:
       - people
       summary: person details by UUID (open only to self)
       description: Person details by UUID
-      operationId: people_uuid_get
       parameters:
       - name: uuid
         in: path
@@ -179,16 +166,12 @@ paths:
           description: A Person with the specified ID was not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.people_controller
   /preferences/{preftype}/{uuid}:
     get:
       tags:
       - preferences
-      summary: "get user preferences of specific type (settings, permissions or interests;\
-        \ open only to self)"
-      description: "User preferences (returns sane defaults if user valid, but preferences\
-        \ not available)"
-      operationId: preferences_preftype_uuid_get
+      summary: get user preferences of specific type (settings, permissions or interests; open only to self)
+      description: User preferences (returns sane defaults if user valid, but preferences not available)
       parameters:
       - name: preftype
         in: path
@@ -211,7 +194,6 @@ paths:
             application/json:
               schema:
                 type: object
-                x-content-type: application/json
         "204":
           description: Preference not found
         "400":
@@ -222,13 +204,11 @@ paths:
           description: Person/UUID not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.preferences_controller
     put:
       tags:
       - preferences
       summary: update user preferences by type (open only to self)
       description: Update specific type of user preferences
-      operationId: preferences_preftype_uuid_put
       parameters:
       - name: uuid
         in: path
@@ -259,7 +239,6 @@ paths:
             application/json:
               schema:
                 type: string
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -268,14 +247,12 @@ paths:
           description: A User with the specified ID was not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.preferences_controller
   /preferences/{uuid}:
     get:
       tags:
       - preferences
       summary: get all user preferences as an object (open only to self)
       description: Get all preferences for a user
-      operationId: preferences_uuid_get
       parameters:
       - name: uuid
         in: path
@@ -299,13 +276,11 @@ paths:
           description: Person/UUID not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.preferences_controller
   /authorids/{uuid}:
     get:
       tags:
       - publications
-      summary: "get user's author IDs (Scopus, Orcid etc.; open only to self)"
-      operationId: authorids_uuid_get
+      summary: get user's author IDs (Scopus, Orcid etc.; open only to self)
       parameters:
       - name: uuid
         in: path
@@ -323,7 +298,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/AuthorId'
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -332,13 +306,11 @@ paths:
           description: Person matching UUID not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.publications_controller
   /authorids/{idtype}/{uuid}:
     get:
       tags:
       - publications
       summary: get users specific author ID (open only to self)
-      operationId: authorids_idtype_uuid_get
       parameters:
       - name: idtype
         in: path
@@ -361,7 +333,6 @@ paths:
             application/json:
               schema:
                 type: string
-                x-content-type: application/json
         "204":
           description: This type author ID not found
         "400":
@@ -372,12 +343,10 @@ paths:
           description: Person with UUID not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.publications_controller
     put:
       tags:
       - publications
       summary: update user's specific author ID (open only to self)
-      operationId: authorids_idtype_uuid_put
       parameters:
       - name: idtype
         in: path
@@ -407,7 +376,6 @@ paths:
             application/json:
               schema:
                 type: string
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -416,14 +384,11 @@ paths:
           description: People not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.publications_controller
   /sshkey/{keytype}:
     put:
       tags:
       - sshkeys
-      summary: Generate a new SSH key of specified type. Return both public and private
-        portions. (open only to self)
-      operationId: sshkey_keytype_put
+      summary: Generate a new SSH key of specified type. Return both public and private portions. (open only to self)
       parameters:
       - name: keytype
         in: path
@@ -461,13 +426,10 @@ paths:
           description: Keys not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
     post:
       tags:
       - sshkeys
-      summary: Add a user-provided ssh public key of specified type. (open only to
-        self)
-      operationId: sshkey_keytype_post
+      summary: Add a user-provided ssh public key of specified type. (open only to self)
       parameters:
       - name: keytype
         in: path
@@ -497,7 +459,6 @@ paths:
             application/json:
               schema:
                 type: string
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -506,13 +467,11 @@ paths:
           description: Keys not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
   /sshkey/{uuid}/{keyid}:
     get:
       tags:
       - sshkeys
       summary: Get a specific key of a given user (open to any valid user)
-      operationId: sshkey_uuid_keyid_get
       parameters:
       - name: uuid
         in: path
@@ -537,7 +496,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SshKeyLong'
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -546,14 +504,11 @@ paths:
           description: Keys not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
   /sshkey/{keyid}:
     get:
       tags:
       - sshkeys
-      summary: "get metadata, including expiration date for this key based on key\
-        \ UUID (open only to self)"
-      operationId: sshkey_keyid_get
+      summary: get metadata, including expiration date for this key based on key UUID (open only to self)
       parameters:
       - name: keyid
         in: path
@@ -577,12 +532,10 @@ paths:
           description: Key not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
     delete:
       tags:
       - sshkeys
       summary: Delete a specified key based on key UUID (open only to self)
-      operationId: sshkey_keyid_delete
       parameters:
       - name: keyid
         in: path
@@ -598,7 +551,6 @@ paths:
             application/json:
               schema:
                 type: string
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -607,13 +559,11 @@ paths:
           description: People not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
   /sshkeys:
     get:
       tags:
       - sshkeys
       summary: Get a list of all active/non-expired keys of this user (open to self)
-      operationId: sshkeys_get
       responses:
         "200":
           description: OK
@@ -623,7 +573,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SshKeyLong'
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -632,14 +581,11 @@ paths:
           description: Keys not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
   /bastionkeys:
     get:
       tags:
       - sshkeys
-      summary: "Get a list of bastion keys that were created, deactivated or expired\
-        \ since specified date in UTC (open to Bastion hosts)"
-      operationId: bastionkeys_get
+      summary: Get a list of bastion keys that were created, deactivated or expired since specified date in UTC (open to Bastion hosts)
       parameters:
       - name: secret
         in: query
@@ -664,7 +610,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/SshKeyBastion'
-                x-content-type: application/json
         "400":
           description: Bad request
         "401":
@@ -673,7 +618,6 @@ paths:
           description: Keys not found
         "5XX":
           description: Unexpected error
-      x-openapi-router-controller: swagger_server.controllers.sshkeys_controller
 components:
   schemas:
     Version:
@@ -682,9 +626,6 @@ components:
           type: string
         gitsha1:
           type: string
-      example:
-        gitsha1: gitsha1
-        version: version
     People_short:
       properties:
         uuid:
@@ -697,12 +638,6 @@ components:
           type: string
         oidc_claim_sub:
           type: string
-      example:
-        eppn: eppn
-        name: name
-        uuid: uuid
-        oidc_claim_sub: oidc_claim_sub
-        email: email
     People_long:
       properties:
         uuid:
@@ -719,17 +654,6 @@ components:
           type: string
         prefs:
           $ref: '#/components/schemas/Preferences'
-      example:
-        eppn: eppn
-        name: name
-        uuid: uuid
-        oidc_claim_sub: oidc_claim_sub
-        bastion_login: bastion_login
-        email: email
-        prefs:
-          settings: {}
-          permissions: {}
-          interests: {}
     Preferences:
       properties:
         settings:
@@ -738,10 +662,6 @@ components:
           type: object
         interests:
           type: object
-      example:
-        settings: {}
-        permissions: {}
-        interests: {}
     SshKeyPair:
       properties:
         private_openssh:
@@ -749,9 +669,6 @@ components:
         public_openssh:
           type: string
       description: SSH Key Pair
-      example:
-        private_openssh: private_openssh
-        public_openssh: public_openssh
     SshKeyLong:
       properties:
         key_uuid:
@@ -777,34 +694,15 @@ components:
         deactivation_reason:
           type: string
       description: Public SSH key long version
-      example:
-        public_key: public_key
-        ssh_key_type: ssh_key_type
-        deactivation_reason: deactivation_reason
-        key_uuid: key_uuid
-        fabric_key_type: sliver
-        created_on: created_on
-        expires_on: expires_on
-        fingerprint: fingerprint
-        description: description
-        comment: comment
-        deactivated_on: deactivated_on
     SshKeyBastion:
       properties:
         public_openssh:
           type: string
         login:
           type: string
-        gecos:
-          type: string
         status:
           $ref: '#/components/schemas/SshKeyStatus'
       description: SSH key info for bastion host
-      example:
-        gecos: gecos
-        public_openssh: public_openssh
-        login: login
-        status: deactivated
     SshKeyType:
       type: string
       description: Type of SSH key
@@ -832,9 +730,6 @@ components:
         idvalue:
           type: string
       description: Tuple describing an author ID (type and value)
-      example:
-        idtype: orcid
-        idvalue: idvalue
     PreferenceType:
       type: string
       description: Portal preferences come in a small number of flavors
@@ -842,4 +737,3 @@ components:
       - settings
       - permissions
       - interests
-

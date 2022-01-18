@@ -24,7 +24,7 @@
 #
 # Author: Ilya Baldin (ibaldin@renci.org), Michael Stealey (stealey@renci.org)
 
-from sqlalchemy import Column, Integer, String, ForeignKey, Table, TIMESTAMP
+from sqlalchemy import Column, Integer, String, ForeignKey, Table, Boolean, Index, DateTime
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import JSONB
 from enum import Enum, unique
@@ -49,7 +49,7 @@ class FabricPaper(Base):
     __tablename__ = 'fabric_papers'
 
     id = Column(Integer, primary_key=True)
-    registered_on = Column(TIMESTAMP)
+    registered_on = Column(DateTime(timezone=True))
     doi = Column(String)
     title = Column(String)
     authors_as_text = Column(String)
@@ -71,52 +71,54 @@ class FabricPerson(Base):
     __tablename__ = 'fabric_people'
 
     id = Column(Integer, primary_key=True)
-    registered_on = Column(TIMESTAMP)
-    uuid = Column(String)
+    registered_on = Column(DateTime(timezone=True))
+    uuid = Column(String, unique=True)
     oidc_claim_sub = Column(String)
     name = Column(String)
     email = Column(String)
     eppn = Column(String)
+    bastion_login = Column(String)
     # store comanage ID here
-    co_person_id = Column(String)
+    co_person_id = Column(Integer)
     # preferences
     settings = Column(JSONB)
     permissions = Column(JSONB)
     interests = Column(JSONB)
-    # portal keys
-    portal_keys = relationship('PortalKey', backref='owner')
-    # user keys
-    user_keys = relationship('UserKey', backref='owner')
     # alternative IDs (scopus, orcid)
     alt_ids = relationship('AuthorID', backref='owner')
 
 
-class PortalKey(Base):
+class DbSshKey(Base):
     """
-    Portal-generated SSH keypairs
+    SSH key storage. Keys can be sliver or bastion.
+    They can be forcibly deactivated or they can expire.
     """
-    __tablename__ = 'portal_keys'
+    __tablename__ = 'fabric_sshkeys'
 
     id = Column(Integer, primary_key=True)
-    keyid = Column(String)
-    pubkey = Column(String)
-    privkey = Column(String)
-    registered_on = Column(TIMESTAMP)
-    expires_on = Column(TIMESTAMP)
-    owner_id = Column(Integer, ForeignKey('fabric_people.id'))
+    key_uuid = Column(String)
+    comment = Column(String)
+    # When received from user or returned to them
+    # SSH public key has name, public_key and label in that order
+    # e.g. 'ssh-dss <base 64 encoded public key> mykey'
+    description = Column(String)
+    ssh_key_type = Column(String)
+    fabric_key_type = Column(String)
+    fingerprint = Column(String)
+    created_on = Column(DateTime(timezone=True))
+    # NOTE: not clear this index is enough to optimize searches for expired keys
+    expires_on = Column(DateTime(timezone=True), index=True)
+    active = Column(Boolean)
+    deactivation_reason = Column(String)
+    deactivated_on = Column(DateTime(timezone=True))
+    owner_uuid = Column(String, ForeignKey('fabric_people.uuid'))
+    # if storing locally
+    public_key = Column(String)
+    # if storing in COmanage
+    comanage_key_id = Column(String)
 
-
-class UserKey(Base):
-    """
-    User public SSH keys
-    """
-    __tablename__ = 'user_keys'
-
-    id = Column(Integer, primary_key=True)
-    keyid = Column(String)
-    pubkey = Column(String)
-    registered_on = Column(TIMESTAMP)
-    owner_id = Column(Integer, ForeignKey('fabric_people.id'))
+    Index('idx_owner_keyid_keytype', 'type', 'owner_uuid', 'key_uuid')
+    Index('idx_owner_fingerprint', 'owner_uuid', 'fingerprint')
 
 
 class AuthorID(Base):

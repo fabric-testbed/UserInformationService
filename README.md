@@ -23,16 +23,17 @@ intended to be deployed as a Dockerized Flask application run by `uwsgi` behind 
  
 UIS provides guarded access to user information - portal preferences, publications, SSH keys, alternate IDs and so on.
 
-Most of the API calls allow only the user herself to request her own information and is intended (via
+Most of the API calls allow only the user themselves to request their own information and is intended (via
 mechanism like [VouchProxy](https://github.com/vouch/vouch-proxy)) to allow a user to authenticate using OIDC via 
 a portal application and, once authenticated, for the portal to request the necessary information on 
-user behalf.
+user's behalf.
 
-The initial implementation provides several entrypoints:
+The initial implementation provides several endpoints:
 
 ![UIService API](imgs/api-screenshot.png)
+![UIService API1](imgs/api-screenshot1.png)
 
-There are several entrypoints intended for the portal to store and retrieve different types of preferences on
+There are several endpoints intended for the portal to store and retrieve different types of preferences on
 behalf of the user. These are opaque JSON dictionaries to UIS and are encoded and interpreted 
 by the portal logic. Preferences come in three separate flavors: `settings` for portal settings,
 `permissions` - for personal information visibility permissions and `interests` - for social interests 
@@ -48,6 +49,9 @@ Preferences:
      interests:
        type: object
 ```
+
+Additional endpoints deal with generating/uploading/searching for SSH public keys. Keys
+can be stored in the local database or in COmanage depending on the deployment configuration
 
 # Database
 
@@ -72,7 +76,8 @@ postgres-# \dt
 postgres-# 
 ```
 
-Read the COmanage section and other sections regarding impact of manipulataing the database by hand.
+## Indexing
+All indexes should be created from the SQLAlchemy ORM code in [server/swagger_server/database/models.py](server/swagger_server/database/models.py)
 
 # COmanage and User Management
 
@@ -87,8 +92,31 @@ but their preferences are lost.
 Alternatively if the new co_person_id is known, UIS database `co_person_id` column can
 be updated with the new value for the re-enrolled user.
 
+COmanage is also used to store public SSH key although metadata about those keys is maintained
+in UIS local database.
+
 Details of COmanage API can be found [here](https://spaces.at.internet2.edu/display/COmanage/CoPerson+API).
  
+# SSH Key Management
+
+This is probably the most complex part of UIS. UIS stores two types of keys: "sliver" and "bastion".
+It only stores the _public_ portion of the key. It can generate new keypairs using a preconfigured
+algorithm (rsa or ecdsa) with preset key lengths. When generating a keypair the private portion of the
+key is returned to the user, it is never stored on UIS. 
+
+Both key types have separately configurable expiration periods specified in days. Sliver public keys
+are stored in UIS purely as a convenience features, which allows users to then query it for these
+public keys. Users can query other users public sliver keys so they can e.g. propagate them into
+their slices. Bastion keys are only visible to their user owners. Bastion keys are periodically propagated
+to bastion hosts using the [Bastion Key Client script](https://github.com/fabric-testbed/BastionKeyClient).
+
+When keys expire (regardless of type) they are kept in the database locally using a predefined garbage
+collection period (in days). This is to prevent key reuse and for forensics. 
+
+UIS can be configured to push sliver keys (only sliver keys) to COmanage to associate with user records. 
+
+There is a configurable limit on the number of keys of each type that can be stored per user.
+
 # Testing
 
 Setup your env_template. Then run `docker-compose -f <compose file> --env-file <env file> up`.
@@ -147,6 +175,10 @@ select table_name, column_name, data_type from information_schema.columns where 
 ```
 \dt describe tables
 ```
+- describe individual table
+```buildoutcfg
+\d fabric_people
+```
 
 ### Testing comanage code
 
@@ -162,7 +194,8 @@ Production deployment is meant to mimic the 'Vouch Proxy' local docker deploymen
 proper secrets, certs etc. You must edit the following files to support a production deployment:
 - [nginx/default.conf](vouch/default.conf) - API routing
 - [vouch/config_template](vouch/config_template) - Vouch Proxy configuration discussed below
-- [env_template](env_template) - environment settings that determine the behavior of docker-compose. NOTE: Values are case sensitive, although names are not. 
+- [env_template](env_template) - environment settings that determine the behavior of docker-compose. 
+NOTE: Values are case sensitive, although names are not. 
 
 To configure Vouch Proxy, copy [vouch/config_template](vouch/config_template) to `vouch/config`, edit at least the 
 following parameters:
@@ -193,6 +226,12 @@ should be dropped and recreated upon restart. Use with caution. Normally if writ
 an entry for a person exists, it is simply updated with name/email/eppn attributes and the system moves on, new entries 
 are added. When using this, be sure to set it back to `false` after a restart, lest you forget it and next time
 UIS is restarted for some reason, database will be dropped again. 
+
+# Developing API clients
+
+As part of [Bastion Key Client](https://github.com/fabric-testbed/BastionKeyClient/tree/main/python-client-generated) the auto-generated 
+swagger client is pushed to PyPi. To develop API clients install `pip3 install uis-swagger-client` first.
+
 
 # References
 

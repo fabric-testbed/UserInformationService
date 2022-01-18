@@ -40,7 +40,7 @@ class TestPeopleController(BaseTestCase):
     def test_people_whoami_get(self):
         """Test case for people_whoami_get
 
-        Details about self from OIDC Claim sub provided in ID token (open only to self)
+        Details about self from OIDC Claim sub provided in ID token; Creates new entry; (open only to self)
         """
         response = self.client.open(
             '//people/whoami',

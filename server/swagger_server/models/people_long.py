@@ -15,7 +15,7 @@ class PeopleLong(Model):
 
     Do not edit the class manually.
     """
-    def __init__(self, uuid: str=None, name: str=None, email: str=None, eppn: str=None, oidc_claim_sub: str=None, prefs: Preferences=None):  # noqa: E501
+    def __init__(self, uuid: str=None, name: str=None, email: str=None, eppn: str=None, oidc_claim_sub: str=None, bastion_login: str=None, prefs: Preferences=None):  # noqa: E501
         """PeopleLong - a model defined in Swagger
 
         :param uuid: The uuid of this PeopleLong.  # noqa: E501
@@ -28,6 +28,8 @@ class PeopleLong(Model):
         :type eppn: str
         :param oidc_claim_sub: The oidc_claim_sub of this PeopleLong.  # noqa: E501
         :type oidc_claim_sub: str
+        :param bastion_login: The bastion_login of this PeopleLong.  # noqa: E501
+        :type bastion_login: str
         :param prefs: The prefs of this PeopleLong.  # noqa: E501
         :type prefs: Preferences
         """
@@ -37,6 +39,7 @@ class PeopleLong(Model):
             'email': str,
             'eppn': str,
             'oidc_claim_sub': str,
+            'bastion_login': str,
             'prefs': Preferences
         }
 
@@ -46,6 +49,7 @@ class PeopleLong(Model):
             'email': 'email',
             'eppn': 'eppn',
             'oidc_claim_sub': 'oidc_claim_sub',
+            'bastion_login': 'bastion_login',
             'prefs': 'prefs'
         }
         self._uuid = uuid
@@ -53,6 +57,7 @@ class PeopleLong(Model):
         self._email = email
         self._eppn = eppn
         self._oidc_claim_sub = oidc_claim_sub
+        self._bastion_login = bastion_login
         self._prefs = prefs
 
     @classmethod
@@ -170,6 +175,27 @@ class PeopleLong(Model):
         """
 
         self._oidc_claim_sub = oidc_claim_sub
+
+    @property
+    def bastion_login(self) -> str:
+        """Gets the bastion_login of this PeopleLong.
+
+
+        :return: The bastion_login of this PeopleLong.
+        :rtype: str
+        """
+        return self._bastion_login
+
+    @bastion_login.setter
+    def bastion_login(self, bastion_login: str):
+        """Sets the bastion_login of this PeopleLong.
+
+
+        :param bastion_login: The bastion_login of this PeopleLong.
+        :type bastion_login: str
+        """
+
+        self._bastion_login = bastion_login
 
     @property
     def prefs(self) -> Preferences:

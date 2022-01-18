@@ -23,24 +23,24 @@
 #
 #
 # Author: Ilya Baldin (ibaldin@renci.org) Michael Stealey (stealey@renci.org)
-from typing import Tuple, Any, List
+from typing import Tuple, List
 
 import psycopg2
 import uuid
 import json
 import re
 import jwt
-import datetime
+from datetime import datetime, timezone
 import requests
-from requests.auth import HTTPBasicAuth
 
 from fss_utils.jwt_manager import ValidateCode
+from fss_utils.sshkey import FABRICSSHKey
+
 from swagger_server.models import Preferences, PeopleShort
 from swagger_server.models.people_long import PeopleLong
 from swagger_server.database import Session
 from swagger_server.database.models import FabricPerson, InsertOutcome, insert_unique_person
-from swagger_server import SKIP_CILOGON_VALIDATION, COAPI_KEY, COAPI_USER, COID, \
-    CO_REGISTRY_URL, CO_ACTIVE_USERS_COU, log
+from swagger_server import SKIP_CILOGON_VALIDATION, CO_ACTIVE_USERS_COU, log, co_api
 from swagger_server import jwt_validator
 
 
@@ -51,22 +51,20 @@ database entries onto API returns and assisting in authorization.
 
 
 def dict_from_query(query=None):
-    session = Session()
-    a = None
-    try:
-        resultproxy = session.execute(query)
-        d, a = {}, []
-        for rowproxy in resultproxy:
-            # rowproxy.items() returns an array like [(key0, value0), (key1, value1)]
-            for column, value in rowproxy.items():
-                # build up the dictionary
-                d = {**d, **{column: value}}
-            a.append(d)
-    except (Exception, psycopg2.DatabaseError) as error:
-        print(error)
-    finally:
-        if session is not None:
-            session.close()
+
+    with Session() as session:
+        a = None
+        try:
+            resultproxy = session.execute(query)
+            d, a = {}, []
+            for rowproxy in resultproxy:
+                # rowproxy.items() returns an array like [(key0, value0), (key1, value1)]
+                for column, value in rowproxy.items():
+                    # build up the dictionary
+                    d = {**d, **{column: value}}
+                a.append(d)
+        except (Exception, psycopg2.DatabaseError) as error:
+            print(error)
 
     return a
 
@@ -180,6 +178,54 @@ def validate_uuid_by_oidc_claim(headers, puuid) -> bool:
         session.close()
 
 
+def get_uuid_by_oidc_claim(headers) -> str or None:
+    """
+    Extract OIDC claim sub from header identity token and return UUID.
+    :param headers: request headers
+    :return str or None:
+    """
+    id_token = headers.get(ID_TOKEN_NAME)
+    if id_token is None:
+        log.info("ID token absent")
+        return None
+
+    # validate the token
+    if jwt_validator is not None:
+        log.info("Validating CI Logon token")
+        code, e = jwt_validator.validate_jwt(token=id_token)
+        if code is not ValidateCode.VALID:
+            log.error(f"Unable to validate provided token: {code}/{e}")
+            return None
+    else:
+        log.warning("JWT Token validator not initialized, skipping validation")
+
+    decoded = jwt.decode(id_token, verify=False)
+    oidc_claim_sub = decoded.get(SUB_CLAIM, None)
+
+    if oidc_claim_sub is None:
+        log.error('"sub" claim not present in the decoded token')
+        return None
+
+    session = Session()
+    try:
+        query = session.query(FabricPerson).filter(FabricPerson.oidc_claim_sub == oidc_claim_sub)
+        query_result = query.all()
+
+        if len(query_result) == 0:
+            log.error(f"Unable to find user matching claim sub {oidc_claim_sub}")
+            return None
+
+        if len(query_result) > 1:
+            log.error(f"Found multiple users matching claim sub {oidc_claim_sub}")
+            return None
+
+        person = query_result[0]
+
+        return person.uuid
+    finally:
+        session.close()
+
+
 def validate_oidc_claim(headers, oidc_claim_sub) -> bool:
     """
     Extract OIDC claim sub from header identity token and compare against parameter. Return
@@ -263,10 +309,11 @@ def create_new_fabric_person_from_token(headers, check_unique=False):
         dbperson = FabricPerson()
         dbperson.uuid = uuid.uuid4()
         log.info(f"Generating new entry for user {decoded.get(SUB_CLAIM)} with UUID {dbperson.uuid}")
-        dbperson.registered_on = datetime.datetime.utcnow()
+        dbperson.registered_on = datetime.now(timezone.utc)
         dbperson.oidc_claim_sub = decoded.get(SUB_CLAIM)
         dbperson.name = decoded.get(NAME_CLAIM)
         dbperson.email = decoded.get(EMAIL_CLAIM)
+        dbperson.bastion_login = FABRICSSHKey.bastion_login(dbperson.oidc_claim_sub, dbperson.email)
         if check_unique:
             ret = insert_unique_person(dbperson, session)
             if ret == InsertOutcome.DUPLICATE_UPDATED:
@@ -309,6 +356,7 @@ def fill_people_long_from_person(person):
     response.name = person.name
     response.email = person.email
     response.oidc_claim_sub = person.oidc_claim_sub
+    response.bastion_login = person.bastion_login
     if person.eppn != 'None':
         response.eppn = person.eppn
     else:
@@ -337,75 +385,13 @@ def fill_people_short_from_person(person):
     return ps
 
 
-def comanage_list_people_matches(given: str = None, family: str = None, email: str = None) -> Tuple[int, List]:
-    """
-    Try to get a brief list of people matching one or more of these fields.
-    Returns a tuple of status code and a list of matching CoPeople entries (if any)
-    """
-    params = {'coid': str(COID)}
-    if given is not None:
-        params['given'] = given
-    if family is not None:
-        params['family'] = family
-    if email is not None:
-        params['mail'] = email
-    # don't allow to ask stupid questions
-    if len(params.keys()) == 1:
-        return 500, []
-    try:
-        response = requests.get(url=CO_REGISTRY_URL + 'co_people.json',
-                                params=params,
-                                auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
-    except requests.exceptions.RequestException as e:
-        log.debug(f"COmanage request exception {e} encountered in co_people.json, "
-                  f"returning status 500")
-        return 500, []
-
-    if response.status_code == 204:
-        # we got nothing back
-        return 200, []
-    if response.status_code != 200:
-        return response.status_code, []
-    response_obj = response.json()
-    retlist = response_obj['CoPeople'] if response_obj.get('CoPeople', None) is not None else list()
-    return response.status_code, retlist
-
-
-def comanage_check_person_couid(person_id, couid) -> Tuple[int, bool]:
-    """
-    Check if a given person is a member of couid. Return tuple of API status code
-    and True or False. Strings or integers accepted as parameters
-    """
-    assert person_id is not None
-    assert couid is not None
-    params = {'coid': str(COID), 'copersonid': str(person_id)}
-    try:
-        response = requests.get(url=CO_REGISTRY_URL + 'co_person_roles.json',
-                                params=params, auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
-    except requests.exceptions.RequestException as e:
-        log.debug(f"COmanage request exception {e} encountered in co_person_roles.json, "
-                  f"returning status 500")
-        return 500, False
-    if response.status_code == 204:
-        # we got nothing back, just say so
-        return 200, False
-    if response.status_code != 200:
-        return response.status_code, False
-    response_obj = response.json()
-    if response_obj.get('CoPersonRoles', None) is None:
-        log.debug(f"COmanage request returned no personal roles in co_person_roles.json")
-        return 500, False
-    for role in response_obj['CoPersonRoles']:
-        if role.get('CouId', None) is not None and role['CouId'] == str(couid):
-            return response.status_code, True
-    return response.status_code, False
-
-
-def comanage_check_active_person(person) -> Tuple[int, bool or None, str or None]:
+def comanage_check_active_person(person) -> Tuple[int, bool or None, int or None]:
     """
     Try to figure out person's co_person_id from different attributes.
     Returns COmanage status code, a boolean for whether person is active
     and string id to store back in the database for next time.
+    Returns a tuple: [return code, person active bool, co_person_id int]
+    If the last one is None, means no need to update, if set - should be updated in db
     """
     # if person_id is present, skip the line
     if person.co_person_id is not None:
@@ -453,7 +439,7 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, str or None
     oidcsub_found = False
     for people in people_list:
         # find a match for person.oidc_claim_sub
-        person_id = people.get('Id', None)
+        person_id = int(people.get('Id', None))
         if person_id is None:
             continue
         oidcsub = comanage_get_person_identifier(person_id, 'oidcsub')
@@ -467,11 +453,62 @@ def comanage_check_active_person(person) -> Tuple[int, bool or None, str or None
                   f'of COmanage matches. OIDC sub found flag is {oidcsub_found}.')
         # person id not available
         return 200, False, None
+
     code, active_flag = comanage_check_person_couid(person_id, CO_ACTIVE_USERS_COU)
+
     return code, active_flag, person_id
 
 
-def comanage_get_person_name(co_person_id) -> Tuple[int, str or None]:
+def comanage_list_people_matches(given: str = None, family: str = None, email: str = None) -> Tuple[int, List]:
+    """
+    Try to get a brief list of people matching one or more of these fields.
+    Returns a tuple of status code and a list of matching CoPeople entries (if any)
+    """
+    cnt = 0
+    if given is not None:
+        cnt += 1
+    if family is not None:
+        cnt += 1
+    if email is not None:
+        cnt += 1
+    # don't allow to ask stupid questions
+    if cnt == 0:
+        log.error(f"The number of match parameters provided is too small in comanage_list_people_matches.")
+        return 500, []
+    try:
+        response_obj = co_api.copeople_match(given, family, email)
+    except requests.HTTPError as e:
+        log.error(f"COmanage request exception {e} encountered in co_people.json, "
+                  f"returning status 500")
+        return 500, []
+
+    retlist = response_obj['CoPeople'] if response_obj.get('CoPeople', None) is not None else list()
+    return 200, retlist
+
+
+def comanage_check_person_couid(person_id, couid) -> Tuple[int, bool]:
+    """
+    Check if a given person is a member of couid. Return tuple of API status code
+    and True or False. Strings or integers accepted as parameters
+    """
+    assert person_id is not None
+    assert couid is not None
+    try:
+        response_obj = co_api.coperson_roles_view_per_coperson(person_id)
+    except requests.HTTPError as e:
+        log.error(f"COmanage request exception {e} encountered in co_person_roles.json, "
+                  f"returning status 500")
+        return 500, False
+    if not response_obj or response_obj.get('CoPersonRoles', None) is None:
+        log.debug(f"COmanage request returned no personal roles in co_person_roles.json")
+        return 500, False
+    for role in response_obj['CoPersonRoles']:
+        if role.get('CouId', None) is not None and role['CouId'] == str(couid):
+            return 200, True
+    return 200, False
+
+
+def comanage_get_person_name(co_person_id: int) -> Tuple[int, str or None]:
     """
     Sometimes CILogon doesn't give us a person name initially, but
     it should be there after enrollment in COmanage.
@@ -480,16 +517,16 @@ def comanage_get_person_name(co_person_id) -> Tuple[int, str or None]:
     :return: tuple of comanage return code and name if any
     """
     assert co_person_id is not None
-    params = {'copersonid': co_person_id}
-    response = requests.get(url=CO_REGISTRY_URL + 'names.json',
-                            params=params,
-                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
-    if response.status_code == 204:
-        # we got nothing back, just say so
-        return 200, None
-    if response.status_code != 200:
-        return response.status_code, None
-    response_obj = response.json()
+
+    try:
+        response_obj = co_api.names_view_per_person(None, co_person_id)
+        if not response_obj:
+            return 200, None
+    except requests.HTTPError as e:
+        log.error(f"COmanage request exception {e} encountered in names.json, "
+                  f"returning status 500")
+        return 500, None
+
     names_list = response_obj.get('Names', None)
     if names_list is None or len(names_list) == 0:
         return 200, None
@@ -504,7 +541,7 @@ def comanage_get_person_name(co_person_id) -> Tuple[int, str or None]:
 
     # strip extra spaces
     name = re.sub(' +', ' ', name)
-    return 200, name[:-1]
+    return 200, name.strip()
 
 
 def check_user_active(session, headers) -> Tuple[int, bool]:
@@ -531,38 +568,32 @@ def comanage_get_person_identifier(co_person_id, identifier_type) -> str or None
     assert co_person_id is not None
     assert identifier_type is not None
 
-    params = {'copersonid': co_person_id}
-    response = requests.get(url=CO_REGISTRY_URL + 'identifiers.json',
-                            params=params,
-                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
+    try:
+        data = co_api.identifiers_view_per_entity(None, co_person_id)
+        if not data:
+            return None
+    except requests.HTTPError as e:
+        log.error(f"COmanage request exception {e} encountered in identifiers.json, "
+                  f"returning status 500")
+        return None
+
     person_id = None
-    if response.status_code == requests.codes.ok:
-        data = response.json()
-        if data.get('Identifiers', None) is not None:
-            for identifier in data['Identifiers']:
-                if identifier['Type'] == identifier_type:
-                    person_id = identifier['Identifier']
-                    break
-    else:
-        log.error(f'Received code {response.status_code} when calling COmanage identifiers.json')
+    if data.get('Identifiers', None) is not None:
+        for identifier in data['Identifiers']:
+            if identifier['Type'] == identifier_type:
+                person_id = identifier['Identifier']
+                break
     return person_id
 
 
-def comanage_get_all_people() -> List[Any]:
+def get_gecos(person) -> str:
     """
-    Get a full list of active people's OIDC subs  for e.g. reinitializing the database. Returns
-    empty list in case of error (logging the error)
+    Produce a GECOS-formatted string based on db person info
     """
-    params = {'coid': COID}
-    response = requests.get(url=CO_REGISTRY_URL + 'co_people.json',
-                            params=params,
-                            auth=HTTPBasicAuth(COAPI_USER, COAPI_KEY))
-    if response.status_code == requests.codes.ok:
-        data = response.json()
-        people_data = response.json()
-        co_people = people_data['CoPeople'] if people_data.get('CoPeople', None) is not None else list()
-        res = list(map(lambda x: x['ActorIdentifier'], filter(lambda x: x['Status'] == 'Active', co_people)))
-        return res
-    else:
-        log.error(f'Received code {response.status_code} when calling COmanage co_people.json')
-        return list()
+    return ','.join([
+        person.name.strip(),  # Full Name
+        '',  # Building, room number
+        '',  # Office telephone
+        '',  # Home telephone
+        person.email.strip() if person.email else person.eppn.strip() if person.eppn else ''  # external email or other contact info
+    ])

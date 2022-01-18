@@ -8,6 +8,7 @@ POSTGRES_USER=postgres
 POSTGRES_PASSWORD=uiservice
 PGDATA=/var/lib/postgresql/data/pgdata
 POSTGRES_DB=postgres
+POSTGRES_POOL_SIZE=10
 
 # COmanage LDAP configuration (only needed if using 'ldap' option for UIS_USER_DATA)
 LDAP_HOST=localhost
@@ -44,3 +45,17 @@ UIS_COAPI_USER="user"
 UIS_COAPI_KEY="key"
 UIS_COID="11"
 UIS_CO_ACTIVE_USERS_COU="111"
+UIS_CO_NAME="Fabric"
+UIS_CO_SSH_AUTHENTICATOR_ID="123"
+
+
+# SSH KEY MANAGEMENT
+UIS_SSH_KEY_ALGORITHM="rsa" # can also be "ecdsa"
+UIS_SSH_BASTION_KEY_VALIDITY_DAYS=5
+UIS_SSH_SLIVER_KEY_VALIDITY_DAYS=10
+UIS_SSH_GARBAGE_COLLECT_AFTER_DAYS=10
+# for bastion host to have a shared secret when calling /bastionkeys
+UIS_SSH_KEY_SECRET="secret1"
+UIS_SSH_KEY_QTY_LIMIT=10
+UIS_SSH_SLIVER_KEY_TO_COMANAGE=false # can set to 'true' or 'yes'
+

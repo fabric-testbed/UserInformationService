@@ -8,9 +8,8 @@ click==7.1.2
 clickclick==20.10.2
 colorama==0.4.4
 connexion==2.7.0
-cryptography==3.3.2
 distlib==0.3.1
-fabric-fss-utils==0.13
+fabric-fss-utils==1.1.7
 filelock==3.0.12
 Flask==1.1.2
 idna==2.10
@@ -31,7 +30,7 @@ py==1.9.0
 pyasn1==0.4.8
 pycodestyle==2.6.0
 pycparser==2.20
-Pygments==2.7.4
+Pygments==2.9.0
 PyJWT==1.7.1
 pyparsing==2.4.7
 python-dateutil==2.6.0
@@ -40,14 +39,15 @@ PyYAML==5.3.1
 requests==2.25.1
 requests-toolbelt==0.9.1
 rfc3986==1.4.0
-SQLAlchemy==1.3.20
+SQLAlchemy==1.4.27
 swagger-ui-bundle==0.0.8
 toml==0.10.2
 tox==3.23.0
 tqdm==4.54.1
-urllib3==1.26.4
 uWSGI==2.0.19.1
 virtualenv==20.3.1
 webencodings==0.5.1
 Werkzeug==1.0.1
 zipp==3.4.0
+fabric-comanage-api==0.1.5
+
