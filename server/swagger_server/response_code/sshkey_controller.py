@@ -547,7 +547,7 @@ def _garbage_collect_keys(session):
     Delete deactivated keys older than specified period (from db and COmanage)
     """
     now = datetime.now(timezone.utc)
-    gc_delta = timedelta(minutes=SSH_GARBAGE_COLLECT_AFTER_DAYS)
+    gc_delta = timedelta(days=SSH_GARBAGE_COLLECT_AFTER_DAYS)
     check_instant = now - gc_delta
     session.query(DbSshKey).\
         filter(DbSshKey.deactivated_on < check_instant,
@@ -586,9 +586,9 @@ def _store_ssh_key(_uuid: str, keytype: str, key: SshKeyShort) -> None:
     db_key.public_key = key.public_key
     db_key.created_on = datetime.now(timezone.utc)
     if keytype == KeyType.sliver.name:
-        exp_delta = timedelta(minutes=SSH_SLIVER_KEY_VALIDITY_DAYS)
+        exp_delta = timedelta(days=SSH_SLIVER_KEY_VALIDITY_DAYS)
     else:
-        exp_delta = timedelta(minutes=SSH_BASTION_KEY_VALIDITY_DAYS)
+        exp_delta = timedelta(days=SSH_BASTION_KEY_VALIDITY_DAYS)
     db_key.expires_on = db_key.created_on + exp_delta
     db_key.active = True
     db_key.fingerprint = key.fingerprint
