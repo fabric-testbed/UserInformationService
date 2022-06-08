@@ -422,6 +422,10 @@ def sshkeys_keytype_post(keytype: str, public_openssh: str, description: str) ->
                 log.error(f'Provided key for {_uuid} is invalid due to {str(e)}')
                 return cors_response(HTTPStatus.BAD_REQUEST,
                                      xerror=f'Provided key for {_uuid} is invalid due to {str(e)}')
+            except Exception:
+                log.error(f'Unable to parse provided SSH key. Provided key is invalid.')
+                return cors_response(HTTPStatus.BAD_REQUEST,
+                                     xerror=f'Provided key for {_uuid} is invalid.')
 
             if not _check_unique(_uuid, fssh.get_fingerprint(), session):
                 log.error(f'Provided key for {_uuid} with fingerprint {fssh.get_fingerprint()} is not unique')
